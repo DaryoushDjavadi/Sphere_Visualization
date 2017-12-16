@@ -7,5 +7,6 @@ void setup() {
 void draw() {
 
   background(51);
-  lights();
+  translate(width*0.5, height*0.5);
+  sphere(200);
 }
