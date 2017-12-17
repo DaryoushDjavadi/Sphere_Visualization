@@ -15,7 +15,7 @@ void draw_GUI(){
   // add a horizontal sliders, the value of this slider will be linked
   // to variable 'sliderValue' 
   cp5.addSlider("sliderValue")
-     .setPosition(100,50)
+     .setPosition(150,50)
      .setRange(0,255)
      ;
   
