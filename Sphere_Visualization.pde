@@ -21,7 +21,8 @@ PShape globe;
 
 void setup() {
 
-  size(800, 800, P3D);
+  //size(displayWidth, displayHeight, P3D);
+  fullScreen(P3D);
 
 
   //Function for calling the GUI to be created
