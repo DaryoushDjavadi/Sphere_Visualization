@@ -33,7 +33,8 @@ void setup() {
 
 
 void draw() {
-  background(51);
+  //background(51);
+  Background_Switch();
 
   
   //Chart
@@ -66,7 +67,7 @@ void draw() {
   //Light Section
   TOD();
   
-  fill(200);
+  //fill(200);
   shape(globe);
   
   

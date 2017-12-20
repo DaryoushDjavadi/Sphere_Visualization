@@ -18,6 +18,12 @@ PShape globe;
 
 
 //++ LIGHT VARIABLES
-int LightX;
-int LightY;
-int LightZ;
+float LightX;
+float LightY;
+float LightZ;
+
+
+//++ BACKGROUND VARIABLES
+float bg_r;
+float bg_g;
+float bg_b;

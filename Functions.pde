@@ -10,7 +10,7 @@
 void loadAndCreateEarth() {
 
   earth = loadImage("earth_s.jpg");
-  //noStroke();
+  noStroke();
   globe= createShape(SPHERE, r);
   globe.setTexture(earth);
 }
@@ -74,19 +74,43 @@ if(ScrollIndex <= -0){
   
   void TOD(){
     
-    if(mousePressed){
+  //if(mousePressed){
       
-  LightX += 1;
-  LightY += 1;
-  LightZ += 1;
+  LightX += 0.2;
+  LightY += 0.2;
+  LightZ += 0.2;
+  
+  if(LightY >= 150){
+  LightY -= 1;
+  }
+  
+  if(LightZ >= 150){
+  LightZ -= 1;
+  }
+
   
   
       
   ambientLight(LightX, LightY, LightZ);
   
   
-    }
+    //}
   }
   
+  
+  
+  //++++++++++++++++++++++++++++++++
+  //    Background_Switch
+  
+    void Background_Switch(){
+    
+      
+      bg_r = random(0, 255);
+      bg_g = random(0, 255);
+      bg_b = random(0, 255);
+      
+      background(bg_r,bg_g,bg_b);
+    
+    }
   
   
