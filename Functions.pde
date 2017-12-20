@@ -27,63 +27,35 @@ void RotateEarthMousePressed() {
   
      if (mousePressed) {
        
-    rotateY(currentRotLerpY);
-    //rotateX(angleX);
     
-    //angleY += 0.01;
-    //currentRotY = angleY;
-    
-    //angleY = mouseX/60/PI;
     
     angleY = mouseX/60/PI;
-    currentRotY = angleY;
-    //currentRotLerp = lerp(angleY, currentRotY,1);
     currentRotLerpY = lerp(RotationMomentY, mouseX/50/PI, 0.6);
-    
-    //angleX = mouseY/60/PI;
     RotationMomentY = currentRotLerpY;
+    
+    rotateY(currentRotLerpY);
   } 
   
   else{
-  
     rotateY(RotationMomentY);
   }
   
 }
-  
-    /*else {
-    rotateY(currentRotY);
-   
-    angleY = mouseX/60/PI;
-    angleX = mouseY/60/PI;
-    
-    rotateY(angleY);
-    rotateX(angleX);
-    
-    //print(angleY);
-    //angleY += 0.01;
-  }
-  else{
-  rotateY(angleY);
-  rotateX(angleX);
-    }
-  }
-  */
+
   
   
   
   
   
   void Scroll_Earth(){
-    mouseWheel();
-  
-     
+    mouseWheel();  
 }
 
 
 void mouseWheel(MouseEvent event) {
   float e = event.getCount();
   ScrollIndex = ScrollIndex + e;
+  ScrollSize = ScrollIndex*10;
  
 //Scrollindex can only be equal or more than 0
 if(ScrollIndex <= -0){
@@ -93,10 +65,29 @@ if(ScrollIndex <= -0){
   //Counting Index 
   //Need a few if- Statements to declare when to zoom and how much
   print(ScrollIndex);
-
-
 }
   
+  
+  
+  
+  //++++++++++++++++++++++++++++++++
+  //    Light Section
+  
+  void TOD(){
+    
+    if(mousePressed){
+      
+  LightX += 1;
+  LightY += 1;
+  LightZ += 1;
+  
+  
+      
+  ambientLight(LightX, LightY, LightZ);
+  
+  
+    }
+  }
   
   
   

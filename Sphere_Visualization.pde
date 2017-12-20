@@ -19,10 +19,16 @@ float r = 200;
 PImage earth;
 PShape globe;
 
+
+//++ LIGHT VARIABLES
+int LightX;
+int LightY;
+int LightZ;
+
 void setup() {
 
-  //size(displayWidth, displayHeight, P3D);
-  fullScreen(P3D);
+  size(displayWidth, displayHeight, P3D);
+  //fullScreen(P3D);
 
 
   //Function for calling the GUI to be created
@@ -49,7 +55,7 @@ void draw() {
   //image(earth, 0, 0);
   
 
-  translate(width*ScrollSize, height*ScrollSize);
+  translate(width*0.5, height*0.5,ScrollSize);
  
 
   RotateEarthMousePressed();
@@ -57,7 +63,8 @@ void draw() {
   Scroll_Earth();
 
 
-  lights();
+  TOD();
+  
   fill(200);
   shape(globe);
 }
