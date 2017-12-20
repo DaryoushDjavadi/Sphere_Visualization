@@ -1,18 +1,27 @@
 import controlP5.*;
-ControlP5 cp5;
 
+import peasy.*;
+
+
+ControlP5 cp5;
+PeasyCam cam;
+Chart myChart;
+
+import processing.opengl.*;
 
 
 void setup() {
 
   //size(displayWidth, displayHeight, P3D);
-  fullScreen(P3D);
+  fullScreen(OPENGL);
 
+  cam = new PeasyCam(this, 800);
 
+  
   frameRate(60);
   
   //Function for calling the GUI to be created
-  //draw_GUI();
+  draw_GUI();
 
 
   
@@ -27,6 +36,14 @@ void draw() {
   background(51);
 
   
+  //Chart
+    // unshift: add data from left to right (first in)
+  //myChart.unshift("incoming", (sin(frameCount*0.1)*20));
+  
+  // push: add data from right to left (last in)
+  myChart.push("incoming", (sin(frameCount*0.1)*10));
+  //Chart
+  
 
 /*
    // Change height of the camera with mouseY
@@ -38,8 +55,9 @@ void draw() {
   
 
 
- translate(width*0.5, height*0.5,ScrollSize);
+ //translate(width*0.5, height*0.5,ScrollSize);
 
+  pushMatrix();
   RotateEarthMousePressed();
   
   Scroll_Earth();
@@ -50,4 +68,25 @@ void draw() {
   
   fill(200);
   shape(globe);
+  
+  
+   popMatrix();
+  // makes the gui stay on top of elements
+  // drawn before.
+ 
+  gui();
+  
+}
+
+
+
+
+
+
+void gui() {
+  hint(DISABLE_DEPTH_TEST);
+  cam.beginHUD();
+  cp5.draw();
+  cam.endHUD();
+  hint(ENABLE_DEPTH_TEST);
 }
