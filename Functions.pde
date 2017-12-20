@@ -10,7 +10,7 @@
 void loadAndCreateEarth() {
 
   earth = loadImage("earth_s.jpg");
-  noStroke();
+  //noStroke();
   globe= createShape(SPHERE, r);
   globe.setTexture(earth);
 }
@@ -29,8 +29,7 @@ void RotateEarthMousePressed() {
        
     
     
-    angleY = mouseX/60/PI;
-    currentRotLerpY = lerp(RotationMomentY, mouseX/50/PI, 0.6);
+    currentRotLerpY = lerp(RotationMomentY, mouseX/50/PI, 0.1);
     RotationMomentY = currentRotLerpY;
     
     rotateY(currentRotLerpY);
