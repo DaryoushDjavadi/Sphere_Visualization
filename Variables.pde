@@ -7,6 +7,11 @@ float ScrollSize = 0.5;
 float ScrollIndex;
 
 
+
+//Table Data Import
+Table table;
+
+
 float currentRotY;
 float currentRotLerpY;
 float RotationMomentY;

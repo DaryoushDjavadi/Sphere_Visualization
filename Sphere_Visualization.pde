@@ -14,6 +14,10 @@ void setup() {
 
   //size(displayWidth, displayHeight, P3D);
   fullScreen(OPENGL);
+  
+  //Load Table with Data  
+  table = loadTable("http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_month.csv", "header");
+
 
   cam = new PeasyCam(this, 800);
 
