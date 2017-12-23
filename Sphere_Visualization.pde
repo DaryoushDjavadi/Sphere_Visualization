@@ -13,7 +13,7 @@ import processing.opengl.*;
 void setup() {
 
   //size(displayWidth, displayHeight, P3D);
-  fullScreen(OPENGL);
+  fullScreen(P3D);
   
   
   table = loadTable("http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_month.csv", "header");
