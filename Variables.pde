@@ -10,6 +10,7 @@ float ScrollIndex;
 
 //Table Data Import
 Table table;
+//float r_table = 200;
 
 
 float currentRotY;

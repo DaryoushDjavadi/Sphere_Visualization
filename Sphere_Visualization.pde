@@ -15,7 +15,7 @@ void setup() {
   //size(displayWidth, displayHeight, P3D);
   fullScreen(OPENGL);
   
-  //Load Table with Data  
+  
   table = loadTable("http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_month.csv", "header");
 
 
@@ -63,11 +63,13 @@ void draw() {
  //translate(width*0.5, height*0.5,ScrollSize);
 
   pushMatrix();
-  RotateEarthMousePressed();
   
-  Scroll_Earth();
+  //RotateEarthMousePressed();
+  
+  //Scroll_Earth();
 
 
+  Table_Display();
   //Light Section
   TOD();
   
