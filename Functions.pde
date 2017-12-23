@@ -109,7 +109,8 @@ if(ScrollIndex <= -0){
       bg_g = random(0, 255);
       bg_b = random(0, 255);
       
-      background(bg_r,bg_g,bg_b);
+      //background(bg_r,bg_g,bg_b);
+      background(200);
     
     }
   
