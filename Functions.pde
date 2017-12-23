@@ -23,6 +23,7 @@ void loadAndCreateEarth() {
   
   void TOD(){
     
+   /*
   //if(mousePressed){
       
   LightX += 0.2;
@@ -41,9 +42,13 @@ void loadAndCreateEarth() {
   
       
   ambientLight(LightX, LightY, LightZ);
-  
+  */
   
     //}
+    
+    lights();
+    
+    
   }
   
   

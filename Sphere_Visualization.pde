@@ -20,6 +20,8 @@ void setup() {
 
 
   cam = new PeasyCam(this, 800);
+  cam.setMinimumDistance(500);
+  cam.setMaximumDistance(900);
 
   
   frameRate(60);
@@ -70,6 +72,8 @@ void draw() {
 
 
   Table_Display();
+  
+  
   //Light Section
   TOD();
   
