@@ -16,57 +16,6 @@ void loadAndCreateEarth() {
 }
 
 
-
-void RotateEarthMousePressed() {
-  
-/*
-  //Function when mouse is pressed let the Earth rotate based on the MouseX and MouseY
-  
-  */
-  
-  
-     if (mousePressed) {
-       
-    
-    
-    currentRotLerpY = lerp(RotationMomentY, mouseX/50/PI, 0.1);
-    RotationMomentY = currentRotLerpY;
-    
-    rotateY(currentRotLerpY);
-  } 
-  
-  else{
-    rotateY(RotationMomentY);
-  }
-  
-}
-
-  
-  
-  
-  
-  
-  void Scroll_Earth(){
-    mouseWheel();  
-}
-
-
-void mouseWheel(MouseEvent event) {
-  float e = event.getCount();
-  ScrollIndex = ScrollIndex + e;
-  ScrollSize = ScrollIndex*10;
- 
-//Scrollindex can only be equal or more than 0
-if(ScrollIndex <= -0){
-  ScrollIndex = 0;
-}
-  
-  //Counting Index 
-  //Need a few if- Statements to declare when to zoom and how much
-  print(ScrollIndex);
-}
-  
-  
   
   
   //++++++++++++++++++++++++++++++++
@@ -109,8 +58,48 @@ if(ScrollIndex <= -0){
       bg_g = random(0, 255);
       bg_b = random(0, 255);
       
-      background(bg_r,bg_g,bg_b);
+      //background(bg_r,bg_g,bg_b);
+      background(200);
     
     }
+    
+    
+    
+    
+    
+    
+    
+    /**/
+    //Table Data Display Test
+    void Table_Display(){
+      for (TableRow row : table.rows()) {
+    float lat = row.getFloat("latitude");
+    float lon = row.getFloat("longitude");
+    float mag = row.getFloat("mag");
+    float theta = radians(lat) + PI/2;
+    float phi = radians(lon) + PI;
+    float x = r * sin(theta) * cos(phi);
+    float y = -r * sin(theta) * sin(phi);
+    float z = r * cos(theta);
+    PVector pos = new PVector(x, y, z);
+
+    float h = pow(10, mag);
+    float maxh = pow(10, 7);
+    h = map(h, 0, maxh, 10, 100);
+    PVector xaxis = new PVector(1, 0, 0);
+    float angleb = PVector.angleBetween(xaxis, pos);
+    PVector raxis = xaxis.cross(pos);
+
+
+
+    pushMatrix();
+    translate(x, y, z);
+    rotate(angleb, raxis.x, raxis.y, raxis.z);
+    fill(255);
+    box(h, 5, 5);
+    popMatrix();
+  }
+    }
+    /**/
   
   

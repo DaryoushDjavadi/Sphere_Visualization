@@ -62,4 +62,26 @@ void draw_GUI(){
   
   
   
+  //NEW GROUP PART
+  //
+    Group g2 = cp5.addGroup("g2")
+                .setPosition(displayWidth/1.4,300)
+                .setSize(300,100)
+                .setBackgroundHeight(600)
+                .setBackgroundColor(color(255,50))
+                ;
+                
+                
+    myTextlabelA = cp5.addTextlabel("label")
+                    .setText("LMB for Rotate, MMB for Pan, RMB for Dolly")
+                    .setPosition(0,0)
+                    .setColorValue(0xffffff00)
+                    .setFont(createFont("Helvetica",20))
+                    .setGroup(g2)
+                    ;
+                
+  // GROUP PART END
+  
+  
+  
 }
