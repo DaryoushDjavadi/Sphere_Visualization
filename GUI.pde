@@ -79,6 +79,16 @@ void draw_GUI(){
                     .setFont(createFont("Helvetica",20))
                     .setGroup(g2)
                     ;
+                    
+                    
+    // create a toggle and change the default look to a (on/off) switch look
+    cp5.addToggle("Autorotate")
+     .setPosition(20, 50)
+     .setSize(100,40)
+     .setValue(true)
+     .setMode(ControlP5.SWITCH)
+     .setGroup(g2)
+     ;
                 
   // GROUP PART END
   
