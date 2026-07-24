@@ -46,10 +46,6 @@
     return PIECES.find((p) => p.id === id);
   }
 
-  function inBounds(r, c) {
-    return r >= 0 && r < SIZE && c >= 0 && c < SIZE;
-  }
-
   function createGridWithoutMatches() {
     const g = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
     for (let r = 0; r < SIZE; r++) {
