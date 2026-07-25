@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KSPS Wave Prototype</title>
+  <style>
+    :root {
+      --ink: #0c1a24;
+      --foam: #e8f4f8;
+      --accent: #2a8f9e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; background: #061018; }
+    body {
+      font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+      color: var(--foam);
+    }
+    canvas { display: block; width: 100%; height: 100%; }
+    #hud {
+      position: fixed;
+      inset: 0 auto auto 0;
+      padding: 1.1rem 1.25rem;
+      max-width: min(22rem, 92vw);
+      pointer-events: none;
+      text-shadow: 0 1px 8px rgba(0,0,0,.55);
+    }
+    #hud h1 {
+      font-size: clamp(1.15rem, 2.5vw, 1.55rem);
+      font-weight: 650;
+      letter-spacing: 0.02em;
+      margin-bottom: 0.35rem;
+    }
+    #hud p {
+      font-size: 0.84rem;
+      line-height: 1.4;
+      opacity: 0.88;
+      margin-bottom: 0.85rem;
+    }
+    .row {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.55rem;
+    }
+    .pill {
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.28rem 0.55rem;
+      border: 1px solid rgba(232,244,248,.28);
+      background: rgba(12,26,36,.45);
+    }
+    .pill.active {
+      border-color: var(--accent);
+      background: rgba(42,143,158,.35);
+    }
+    #bar {
+      height: 4px;
+      background: rgba(255,255,255,.12);
+      margin-top: 0.35rem;
+      overflow: hidden;
+    }
+    #bar > i {
+      display: block;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #3db8c9, #e8f4f8);
+    }
+    #controls {
+      position: fixed;
+      right: 1rem;
+      bottom: 1rem;
+      display: flex;
+      gap: 0.45rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      pointer-events: auto;
+    }
+    button {
+      font: inherit;
+      font-size: 0.8rem;
+      padding: 0.55rem 0.9rem;
+      border: 1px solid rgba(232,244,248,.35);
+      background: rgba(8,20,30,.72);
+      color: var(--foam);
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+    }
+    button:hover { border-color: var(--accent); background: rgba(42,143,158,.28); }
+    #hint {
+      position: fixed;
+      left: 1.25rem;
+      bottom: 1.1rem;
+      font-size: 0.72rem;
+      opacity: 0.65;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <h1>Wave Prototype</h1>
+    <p>KSPS-inspired spline wave: build → tube → break. Physics from the historical source stage/perturb model — not the original assets.</p>
+    <div class="row" id="stagePills"></div>
+    <div class="row" id="perturbPills"></div>
+    <div id="bar"><i id="progressFill"></i></div>
+  </div>
+  <div id="controls">
+    <button type="button" id="btnRestart">Restart wave</button>
+    <button type="button" id="btnPause">Pause</button>
+    <button type="button" id="btnWire">Wireframe</button>
+  </div>
+  <div id="hint">Drag to orbit · scroll to zoom</div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+/* --------------------------------------------------------------------------
+   Natural cubic spline — same algorithm as KS/SRC/ks/spline.cpp
+   f[i](x) = a(x-xi)^3 + b(x-xi)^2 + c(x-xi) + d
+   -------------------------------------------------------------------------- */
+function computeCoeffs(x, y) {
+  const n = x.length;
+  const a = new Float32Array(n);
+  const b = new Float32Array(n);
+  const c = new Float32Array(n);
+  const d = new Float32Array(n);
+  const h = new Float32Array(n);
+  const kOverH = new Float32Array(n);
+  const u = new Float32Array(n);
+  const v = new Float32Array(n);
+
+  h[0] = x[1] - x[0];
+  kOverH[0] = (y[1] - y[0]) / h[0];
+  h[1] = x[2] - x[1];
+  kOverH[1] = (y[2] - y[1]) / h[1];
+  u[1] = 0;
+  let denom = 2 * (h[1] + h[0]);
+  v[1] = (3 * (kOverH[1] - kOverH[0])) / denom;
+
+  for (let i = 2; i < n - 1; i++) {
+    h[i] = x[i + 1] - x[i];
+    kOverH[i] = (y[i + 1] - y[i]) / h[i];
+    u[i] = h[i - 1] / denom;
+    denom = 2 * (h[i] + h[i - 1]) - h[i - 1] * u[i];
+    v[i] = (3 * (kOverH[i] - kOverH[i - 1]) - h[i - 1] * v[i - 1]) / denom;
+  }
+
+  b[n - 1] = 0;
+  for (let i = n - 2; i > 0; i--) {
+    b[i] = v[i] - u[i + 1] * b[i + 1];
+    a[i] = (b[i + 1] - b[i]) / (3 * h[i]);
+    c[i] = kOverH[i] - (b[i + 1] + 2 * b[i]) * h[i] / 3;
+    d[i] = y[i];
+  }
+  b[0] = 0;
+  a[0] = b[1] / (3 * h[0]);
+  c[0] = kOverH[0] - b[1] * h[0] / 3;
+  d[0] = y[0];
+  return { a, b, c, d, x };
+}
+
+function binarySearch(x, valx) {
+  let lo = 0;
+  let hi = x.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (x[mid] < valx) lo = mid;
+    else hi = mid;
+  }
+  return lo;
+}
+
+function evaluate(spline, valx) {
+  const { a, b, c, d, x } = spline;
+  const lo = binarySearch(x, valx);
+  const t = valx - x[lo];
+  return ((a[lo] * t + b[lo]) * t + c[lo]) * t + d[lo];
+}
+
+function clamp01(t) {
+  return Math.max(0, Math.min(1, t));
+}
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function smoothstep(t) {
+  t = clamp01(t);
+  return t * t * (3 - 2 * t);
+}
+
+/* --------------------------------------------------------------------------
+   Synthetic control grid (stand-in for a .wave file).
+   Profiles along X (open → closed end), controls along Z (front → back).
+   Cross-section curls into a tube — regions match KSPS naming intent.
+   -------------------------------------------------------------------------- */
+const NUM_PROFILE = 15;
+const NUM_CONTROL = 15;
+const MESH_NX = 64;
+const MESH_NZ = 40;
+const MESH_MIN_X = -18;
+const MESH_MAX_X = 18;
+const MESH_MIN_Z = -6;
+const MESH_MAX_Z = 10;
+const MESH_WIDTH = MESH_MAX_X - MESH_MIN_X;
+
+// Stage durations from wave.cpp defaults / Tongue-ish break timings
+const STAGE = ["Building", "Stable", "Subsiding"];
+const PERTURB = ["None", "Do", "Hold", "Collapse", "Wait", "Undo"];
+const DURATION_BUILDING = 5;
+const DURATION_STABLE = 18;
+const DURATION_SUBSIDING = 5;
+const PERTURB_DURATIONS = [0, 2.0, 6.0, 2.5, 3.0, 4.0]; // None, Do, Hold, Collapse, Wait, Undo
+
+/** Classic tube-forming cross-section in control space s∈[0,1] (front→back). */
+function tubeCrossSection(s, curl) {
+  // curl 0 = open face, 1 = full tube lip-over
+  const face = smoothstep((s - 0.12) / 0.38);
+  const crest = Math.sin(Math.PI * clamp01((s - 0.18) / 0.45));
+  let y = 0.15 + 3.6 * face * crest;
+  let z = MESH_MIN_Z + s * (MESH_MAX_Z - MESH_MIN_Z);
+
+  // Lip curls forward/over as curl increases (creates hollow tube underside)
+  const lip = smoothstep((s - 0.42) / 0.22);
+  const tube = smoothstep((s - 0.55) / 0.28);
+  y += curl * lip * 1.8;
+  z -= curl * lip * 3.2;
+  y -= curl * tube * 2.4;
+  z -= curl * tube * 1.4;
+
+  // Wash behind
+  if (s > 0.82) {
+    const w = (s - 0.82) / 0.18;
+    y = lerp(y, 0.35 + 0.4 * Math.sin(w * Math.PI), w);
+    z = lerp(z, MESH_MAX_Z - 0.5, w * 0.4);
+  }
+  return { y, z };
+}
+
+function buildControlGrid() {
+  // Base profiles: mostly same shape; slight height variation along X
+  const profiles = [];
+  for (let j = 0; j < NUM_PROFILE; j++) {
+    const pj = j / (NUM_PROFILE - 1);
+    const heightScale = 0.85 + 0.25 * Math.sin(pj * Math.PI);
+    const controls = [];
+    for (let i = 0; i < NUM_CONTROL; i++) {
+      const s = i / (NUM_CONTROL - 1);
+      // Base stored at full curl=1 so we can scale curl at runtime
+      const { y, z } = tubeCrossSection(s, 1);
+      const flat = tubeCrossSection(s, 0);
+      controls.push({
+        x: MESH_MIN_X + pj * MESH_WIDTH,
+        yFlat: flat.y * heightScale,
+        yTube: y * heightScale,
+        zFlat: flat.z,
+        zTube: z,
+      });
+    }
+    profiles.push(controls);
+  }
+  return profiles;
+}
+
+const controlGrid = buildControlGrid();
+
+/* --------------------------------------------------------------------------
+   Stage / perturb state machine (wave.cpp WAVE_ComputeStage + Tongue perturb)
+   -------------------------------------------------------------------------- */
+const state = {
+  time: 0,
+  stage: 0,          // Building, Stable, Subsiding
+  stageStart: 0,
+  perturb: 0,        // 0=None, 1=Do … 5=Undo
+  perturbStart: 0,
+  breakAt: Infinity, // when Do begins during Stable
+  paused: false,
+  wire: false,
+  cycle: 0,
+};
+
+function stageDuration(s) {
+  if (s === 0) return DURATION_BUILDING;
+  if (s === 1) return DURATION_STABLE;
+  return DURATION_SUBSIDING;
+}
+
+function stageProgress() {
+  const d = stageDuration(state.stage);
+  return d <= 0 ? 1 : clamp01((state.time - state.stageStart) / d);
+}
+
+function perturbProgress() {
+  if (state.perturb === 0) return 0;
+  const d = PERTURB_DURATIONS[state.perturb] || 1;
+  return d <= 0 ? 1 : clamp01((state.time - state.perturbStart) / d);
+}
+
+function restartWave() {
+  state.time = 0;
+  state.stage = 0;
+  state.stageStart = 0;
+  state.perturb = 0;
+  state.perturbStart = 0;
+  state.breakAt = Infinity;
+  state.cycle++;
+}
+
+function advanceMachines(dt) {
+  if (state.paused) return;
+  state.time += dt;
+
+  if (stageProgress() >= 1) {
+    if (state.stage < 2) {
+      state.stage++;
+      state.stageStart = state.time;
+      if (state.stage === 1) {
+        // Tongue/Surge-style break starts shortly into Stable
+        state.breakAt = state.time + 1.5;
+      }
+    } else {
+      restartWave();
+      return;
+    }
+  }
+
+  if (state.perturb === 0 && state.time >= state.breakAt) {
+    state.perturb = 1; // Do
+    state.perturbStart = state.time;
+  } else if (state.perturb >= 1 && perturbProgress() >= 1) {
+    if (state.perturb < 5) {
+      state.perturb++;
+      state.perturbStart = state.time;
+    } else {
+      state.perturb = 0;
+      state.breakAt = Infinity;
+    }
+  }
+}
+
+/**
+ * Building height scale — mirrors WAVE_HeightPerturb idea:
+ * wave grows from open end (low X) as StageProgress increases.
+ */
+function buildingHeightScale(worldX) {
+  if (state.stage === 0) {
+    const a = (worldX - MESH_MIN_X) / MESH_WIDTH; // 0..1
+    const sp = stageProgress();
+    if (a > sp) return Math.max(0.05, (1 - a) / Math.max(0.001, 1 - sp));
+    return lerp(0.15, 1, smoothstep(sp));
+  }
+  if (state.stage === 2) {
+    return Math.max(0.05, 1 - stageProgress());
+  }
+  return 1;
+}
+
+/**
+ * Curl amount from perturb stages (Tongue-like):
+ * Do: blend in tube · Hold: full tube · Collapse: tube→broken pulse · Undo: fade
+ */
+function curlAmount(worldX) {
+  let base = 0.35; // slight face curl even before break
+  if (state.stage === 0) {
+    base *= smoothstep(stageProgress());
+  }
+  if (state.perturb === 0) return base;
+
+  const pp = perturbProgress();
+  const nx = (worldX - MESH_MIN_X) / MESH_WIDTH;
+
+  // Pulse travels from open side toward closed (Surge/Tongue collapse)
+  const pulseCenter = state.perturb === 3
+    ? lerp(-0.1, 1.2, pp)
+    : state.perturb === 4
+      ? 1.1
+      : state.perturb === 5
+        ? lerp(1.1, -0.2, pp)
+        : 0.35;
+  const pulseWidth = 0.28;
+  const inPulse = Math.exp(-Math.pow((nx - pulseCenter) / pulseWidth, 2));
+
+  switch (state.perturb) {
+    case 1: // Do — form tube
+      return lerp(base, 1, smoothstep(pp));
+    case 2: // Hold
+      return 1;
+    case 3: // Collapse — tube collapses behind the pulse into wash
+      return lerp(1, 0.1, inPulse * smoothstep(pp));
+    case 4: // Wait — mostly broken face
+      return lerp(0.15, 0.35, 1 - nx);
+    case 5: // Undo
+      return lerp(0.2, base, smoothstep(pp));
+    default:
+      return base;
+  }
+}
+
+/** Collapse / foam displacement along Z during break */
+function breakWash(worldX) {
+  if (state.perturb < 3) return 0;
+  const pp = perturbProgress();
+  const nx = (worldX - MESH_MIN_X) / MESH_WIDTH;
+  const pulseCenter = state.perturb === 3 ? lerp(-0.1, 1.2, pp)
+    : state.perturb === 5 ? lerp(1.1, -0.2, pp) : 1.0;
+  const inPulse = Math.exp(-Math.pow((nx - pulseCenter) / 0.3, 2));
+  if (state.perturb === 3) return inPulse * 2.2 * pp;
+  if (state.perturb === 4) return 1.6 * (0.4 + 0.6 * nx);
+  if (state.perturb === 5) return inPulse * 1.2 * (1 - pp);
+  return 0;
+}
+
+/* Sample surface at grid point using bilinear blend of control grid + curl */
+function sampleSurface(u, v) {
+  // u,v in [0,1] across mesh
+  const worldX = MESH_MIN_X + u * MESH_WIDTH;
+  const pj = u * (NUM_PROFILE - 1);
+  const j0 = Math.floor(pj);
+  const j1 = Math.min(NUM_PROFILE - 1, j0 + 1);
+  const fj = pj - j0;
+
+  const ci = v * (NUM_CONTROL - 1);
+  const i0 = Math.floor(ci);
+  const i1 = Math.min(NUM_CONTROL - 1, i0 + 1);
+  const fi = ci - i0;
+
+  const curl = curlAmount(worldX);
+  const hScale = buildingHeightScale(worldX);
+  const wash = breakWash(worldX);
+
+  function corner(j, i) {
+    const c = controlGrid[j][i];
+    const y = lerp(c.yFlat, c.yTube, curl) * hScale;
+    let z = lerp(c.zFlat, c.zTube, curl);
+    z += wash * (i / (NUM_CONTROL - 1));
+    // Subtle traveling undulation (HeightPerturbAmp-style)
+    const wobble = 1 + 0.04 * Math.sin((worldX + state.time * 2.2) * 0.55);
+    return {
+      x: worldX,
+      y: y * wobble,
+      z,
+    };
+  }
+
+  const c00 = corner(j0, i0);
+  const c10 = corner(j1, i0);
+  const c01 = corner(j0, i1);
+  const c11 = corner(j1, i1);
+
+  const x = worldX;
+  const y = lerp(lerp(c00.y, c10.y, fj), lerp(c01.y, c11.y, fj), fi);
+  const z = lerp(lerp(c00.z, c10.z, fj), lerp(c01.z, c11.z, fj), fi);
+  return { x, y, z, curl, hScale };
+}
+
+/* Optional: refine with 1D spline along Z for smoother tube lip */
+function sampleSurfaceSplined(u, v) {
+  const worldX = MESH_MIN_X + u * MESH_WIDTH;
+  const pj = u * (NUM_PROFILE - 1);
+  const j0 = Math.floor(pj);
+  const j1 = Math.min(NUM_PROFILE - 1, j0 + 1);
+  const fj = pj - j0;
+  const curl = curlAmount(worldX);
+  const hScale = buildingHeightScale(worldX);
+  const wash = breakWash(worldX);
+
+  function profileY(j) {
+    const xs = [];
+    const ys = [];
+    const zs = [];
+    for (let i = 0; i < NUM_CONTROL; i++) {
+      const c = controlGrid[j][i];
+      xs.push(i / (NUM_CONTROL - 1));
+      ys.push(lerp(c.yFlat, c.yTube, curl) * hScale);
+      zs.push(lerp(c.zFlat, c.zTube, curl) + wash * (i / (NUM_CONTROL - 1)));
+    }
+    const sy = computeCoeffs(xs, ys);
+    const sz = computeCoeffs(xs, zs);
+    return {
+      y: evaluate(sy, v),
+      z: evaluate(sz, v),
+    };
+  }
+
+  const p0 = profileY(j0);
+  const p1 = profileY(j1);
+  const wobble = 1 + 0.04 * Math.sin((worldX + state.time * 2.2) * 0.55);
+  return {
+    x: worldX,
+    y: lerp(p0.y, p1.y, fj) * wobble,
+    z: lerp(p0.z, p1.z, fj),
+    curl,
+    hScale,
+  };
+}
+
+/* --------------------------------------------------------------------------
+   Three.js scene
+   -------------------------------------------------------------------------- */
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.setClearColor(0x061018, 1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x071820, 0.018);
+
+const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 200);
+camera.position.set(-14, 9, 16);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1.5, 2);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI * 0.49;
+
+scene.add(new THREE.AmbientLight(0x6a90a8, 0.55));
+const sun = new THREE.DirectionalLight(0xfff2dd, 1.35);
+sun.position.set(-20, 30, 10);
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0x3a6a8a, 0.45);
+fill.position.set(15, 8, -10);
+scene.add(fill);
+
+// Horizon / sky gradient backdrop
+{
+  const skyGeo = new THREE.SphereGeometry(80, 24, 16);
+  const skyMat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    uniforms: {},
+    vertexShader: `
+      varying vec3 vPos;
+      void main() {
+        vPos = position;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vPos;
+      void main() {
+        float h = normalize(vPos).y;
+        vec3 top = vec3(0.10, 0.22, 0.32);
+        vec3 mid = vec3(0.18, 0.38, 0.48);
+        vec3 bot = vec3(0.04, 0.10, 0.14);
+        vec3 col = mix(bot, mid, smoothstep(-0.2, 0.15, h));
+        col = mix(col, top, smoothstep(0.15, 0.7, h));
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `,
+  });
+  scene.add(new THREE.Mesh(skyGeo, skyMat));
+}
+
+// Flat water plane under/around wave
+{
+  const water = new THREE.Mesh(
+    new THREE.PlaneGeometry(80, 60, 1, 1),
+    new THREE.MeshStandardMaterial({
+      color: 0x0d3a4a,
+      roughness: 0.35,
+      metalness: 0.1,
+      transparent: true,
+      opacity: 0.85,
+    })
+  );
+  water.rotation.x = -Math.PI / 2;
+  water.position.y = 0.02;
+  scene.add(water);
+}
+
+const positions = new Float32Array((MESH_NX + 1) * (MESH_NZ + 1) * 3);
+const colors = new Float32Array((MESH_NX + 1) * (MESH_NZ + 1) * 3);
+const geometry = new THREE.BufferGeometry();
+geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+
+const indices = [];
+for (let iz = 0; iz < MESH_NZ; iz++) {
+  for (let ix = 0; ix < MESH_NX; ix++) {
+    const a = iz * (MESH_NX + 1) + ix;
+    const b = a + 1;
+    const c = a + (MESH_NX + 1);
+    const d = c + 1;
+    indices.push(a, c, b, b, c, d);
+  }
+}
+geometry.setIndex(indices);
+
+const material = new THREE.MeshStandardMaterial({
+  vertexColors: true,
+  roughness: 0.28,
+  metalness: 0.08,
+  side: THREE.DoubleSide,
+  flatShading: false,
+});
+
+const waveMesh = new THREE.Mesh(geometry, material);
+scene.add(waveMesh);
+
+function updateMesh() {
+  // Precompute Z-splines for each profile column (matches WAVE profile coeffs idea)
+  const profileSplines = [];
+  for (let j = 0; j < NUM_PROFILE; j++) {
+    const worldX = MESH_MIN_X + (j / (NUM_PROFILE - 1)) * MESH_WIDTH;
+    const curl = curlAmount(worldX);
+    const hScale = buildingHeightScale(worldX);
+    const wash = breakWash(worldX);
+    const xs = [];
+    const ys = [];
+    const zs = [];
+    for (let i = 0; i < NUM_CONTROL; i++) {
+      const cpt = controlGrid[j][i];
+      xs.push(i / (NUM_CONTROL - 1));
+      ys.push(lerp(cpt.yFlat, cpt.yTube, curl) * hScale);
+      zs.push(lerp(cpt.zFlat, cpt.zTube, curl) + wash * (i / (NUM_CONTROL - 1)));
+    }
+    profileSplines.push({
+      worldX,
+      sy: computeCoeffs(xs, ys),
+      sz: computeCoeffs(xs, zs),
+    });
+  }
+
+  let p = 0;
+  let c = 0;
+  for (let iz = 0; iz <= MESH_NZ; iz++) {
+    const v = iz / MESH_NZ;
+    for (let ix = 0; ix <= MESH_NX; ix++) {
+      const u = ix / MESH_NX;
+      const worldX = MESH_MIN_X + u * MESH_WIDTH;
+      const pj = u * (NUM_PROFILE - 1);
+      const j0 = Math.floor(pj);
+      const j1 = Math.min(NUM_PROFILE - 1, j0 + 1);
+      const fj = pj - j0;
+
+      const y0 = evaluate(profileSplines[j0].sy, v);
+      const y1 = evaluate(profileSplines[j1].sy, v);
+      const z0 = evaluate(profileSplines[j0].sz, v);
+      const z1 = evaluate(profileSplines[j1].sz, v);
+      const wobble = 1 + 0.04 * Math.sin((worldX + state.time * 2.2) * 0.55);
+      const y = lerp(y0, y1, fj) * wobble;
+      const z = lerp(z0, z1, fj);
+
+      positions[p++] = worldX;
+      positions[p++] = y;
+      positions[p++] = z;
+
+      const foam = clamp01((y - 2.2) / 2.5) + (state.perturb >= 3 ? breakWash(worldX) * 0.25 : 0);
+      const depth = clamp01(1 - y / 5);
+      colors[c++] = lerp(0.05, 0.85, foam) + depth * 0.02;
+      colors[c++] = lerp(0.28, 0.92, foam) + depth * 0.15;
+      colors[c++] = Math.min(1, lerp(0.38, 0.95, foam) + depth * 0.35);
+    }
+  }
+  geometry.attributes.position.needsUpdate = true;
+  geometry.attributes.color.needsUpdate = true;
+  geometry.computeVertexNormals();
+}
+
+/* HUD */
+const stagePills = document.getElementById("stagePills");
+const perturbPills = document.getElementById("perturbPills");
+STAGE.forEach((name, i) => {
+  const el = document.createElement("span");
+  el.className = "pill";
+  el.dataset.i = String(i);
+  el.textContent = name;
+  stagePills.appendChild(el);
+});
+PERTURB.forEach((name, i) => {
+  const el = document.createElement("span");
+  el.className = "pill";
+  el.dataset.i = String(i);
+  el.textContent = name;
+  perturbPills.appendChild(el);
+});
+const progressFill = document.getElementById("progressFill");
+
+function updateHud() {
+  stagePills.querySelectorAll(".pill").forEach((el) => {
+    el.classList.toggle("active", Number(el.dataset.i) === state.stage);
+  });
+  perturbPills.querySelectorAll(".pill").forEach((el) => {
+    el.classList.toggle("active", Number(el.dataset.i) === state.perturb);
+  });
+  const prog = state.perturb >= 1 ? perturbProgress() : stageProgress();
+  progressFill.style.width = `${(prog * 100).toFixed(1)}%`;
+}
+
+document.getElementById("btnRestart").onclick = () => restartWave();
+document.getElementById("btnPause").onclick = (e) => {
+  state.paused = !state.paused;
+  e.target.textContent = state.paused ? "Resume" : "Pause";
+};
+document.getElementById("btnWire").onclick = (e) => {
+  state.wire = !state.wire;
+  material.wireframe = state.wire;
+  e.target.textContent = state.wire ? "Solid" : "Wireframe";
+};
+
+addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  advanceMachines(dt);
+  updateMesh();
+  updateHud();
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+restartWave();
+requestAnimationFrame(frame);
+  </script>
+</body>
+</html>
