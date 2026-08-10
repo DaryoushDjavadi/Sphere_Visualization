@@ -1,4 +1,4 @@
-import type { AppSettings, Recipe, User, WeekPlan } from '../types'
+import type { AppSettings, Recipe, User, WeekPlan, WeekSlot } from '../types'
 
 export const USERS: Record<'darius' | 'wendy', User> = {
   darius: {
@@ -38,6 +38,19 @@ export const SEED_RECIPES: Recipe[] = [
     notes: 'Klassiker-Basis — Beilage jedes Mal neu pitchen.',
     createdBy: 'darius',
     createdAt: '2026-08-01T09:00:00.000Z',
+  },
+  {
+    id: 'r-noodles',
+    title: 'Nudeln',
+    kind: 'base',
+    tags: ['basis', 'schnell'],
+    ingredients: [
+      { name: 'Spaghetti', amount: '400g' },
+      { name: 'Salz', amount: '1 EL' },
+    ],
+    notes: 'Als Basis mit Soße oder Gemüse kombinieren.',
+    createdBy: 'wendy',
+    createdAt: '2026-08-01T09:02:00.000Z',
   },
   {
     id: 'r-side-potato',
@@ -82,6 +95,20 @@ export const SEED_RECIPES: Recipe[] = [
     createdAt: '2026-08-01T09:15:00.000Z',
   },
   {
+    id: 'r-side-tzatziki',
+    title: 'Tzatziki',
+    kind: 'side',
+    tags: ['beilage', 'kalt'],
+    ingredients: [
+      { name: 'Joghurt', amount: '400g' },
+      { name: 'Gurke', amount: '1' },
+      { name: 'Knoblauch', amount: '2 Zehen' },
+      { name: 'Dill', amount: '1 Bund' },
+    ],
+    createdBy: 'darius',
+    createdAt: '2026-08-01T09:18:00.000Z',
+  },
+  {
     id: 'r-pasta',
     title: 'One-Pot Pasta Arrabbiata',
     kind: 'meal',
@@ -118,7 +145,7 @@ export const SEED_RECIPES: Recipe[] = [
     id: 'r-curry',
     title: 'Kokos-Kichererbsen-Curry',
     kind: 'meal',
-    tags: ['thermomixtauchlich', 'vegan'],
+    tags: ['cookidoo', 'vegan'],
     ingredients: [
       { name: 'Kichererbsen', amount: '1 Dose' },
       { name: 'Kokosmilch', amount: '400ml' },
@@ -127,8 +154,9 @@ export const SEED_RECIPES: Recipe[] = [
       { name: 'Zwiebel', amount: '1' },
       { name: 'Reis', amount: '250g' },
     ],
-    cookidooUrl: 'https://cookidoo.de/recipes/recipe/de-DE/r123456',
-    notes: 'Demo-Cookidoo-Link – später echte URL einfügen.',
+    cookidooUrl: 'https://cookidoo.de/recipes/recipe/de-DE/r59322',
+    cookidooId: 'r59322',
+    notes: 'Beispiel-Cookidoo-Rezept (Link zum Testen).',
     createdBy: 'wendy',
     createdAt: '2026-08-03T10:00:00.000Z',
   },
@@ -148,6 +176,37 @@ export const SEED_RECIPES: Recipe[] = [
     createdBy: 'darius',
     createdAt: '2026-08-04T10:00:00.000Z',
   },
+  {
+    id: 'r-soup',
+    title: 'Kürbissuppe',
+    kind: 'meal',
+    tags: ['suppe', 'herbst'],
+    ingredients: [
+      { name: 'Hokkaido', amount: '1' },
+      { name: 'Zwiebel', amount: '1' },
+      { name: 'Gemüsebrühe', amount: '750ml' },
+      { name: 'Sahne', amount: '100ml' },
+      { name: 'Ingwer', amount: '20g' },
+    ],
+    createdBy: 'wendy',
+    createdAt: '2026-08-05T10:00:00.000Z',
+  },
+  {
+    id: 'r-tacos',
+    title: 'Gemüse-Tacos',
+    kind: 'meal',
+    tags: ['mexikanisch', 'freitag'],
+    ingredients: [
+      { name: 'Tortillas', amount: '8' },
+      { name: 'Paprika', amount: '2' },
+      { name: 'Mais', amount: '1 Dose' },
+      { name: 'Avocado', amount: '2' },
+      { name: 'Limette', amount: '1' },
+      { name: 'Käse', amount: '150g' },
+    ],
+    createdBy: 'darius',
+    createdAt: '2026-08-06T10:00:00.000Z',
+  },
 ]
 
 export function mealLabel(
@@ -156,8 +215,27 @@ export function mealLabel(
 ): string {
   const a = (main || '').trim()
   const b = (side || '').trim()
-  if (a && b) return `${a} + ${b}`
+  if (a && b) {
+    // Avoid "Reis + Salat + Salat" if main already includes the side.
+    if (a === b || a.endsWith(` + ${b}`) || a.includes(` + ${b}`)) return a
+    return `${a} + ${b}`
+  }
   return a || b || 'Gericht'
+}
+
+/** Resolve display title for a week slot without double-appending sides. */
+export function slotMealLabel(
+  slot: Pick<WeekSlot, 'recipeId' | 'title' | 'sideRecipeId' | 'sideTitle'>,
+  recipes: Recipe[],
+): string {
+  const recipe = recipes.find((r) => r.id === slot.recipeId)
+  const sideRecipe = recipes.find((r) => r.id === slot.sideRecipeId)
+  const side = (slot.sideTitle || sideRecipe?.title || '').trim()
+  let main = (recipe?.title || slot.title || '').trim()
+  if (side && main.endsWith(` + ${side}`)) {
+    main = main.slice(0, -(side.length + 3)).trim()
+  }
+  return mealLabel(main || recipe?.title, side)
 }
 
 function nextMondayLabel(): { id: string; label: string } {
@@ -174,15 +252,18 @@ function nextMondayLabel(): { id: string; label: string } {
   return { id, label: `${fmt(monday)} – ${fmt(sunday)}` }
 }
 
-const weekMeta = nextMondayLabel()
-
-export const SEED_WEEK: WeekPlan = {
-  id: weekMeta.id,
-  label: weekMeta.label,
-  status: 'pitching',
-  slots: WEEKDAYS.map((d) => ({ day: d.id })),
-  createdAt: new Date().toISOString(),
+export function createFreshWeek(): WeekPlan {
+  const weekMeta = nextMondayLabel()
+  return {
+    id: weekMeta.id,
+    label: weekMeta.label,
+    status: 'pitching',
+    slots: WEEKDAYS.map((d) => ({ day: d.id })),
+    createdAt: new Date().toISOString(),
+  }
 }
+
+export const SEED_WEEK: WeekPlan = createFreshWeek()
 
 export const DEFAULT_SETTINGS: AppSettings = {
   bring: {

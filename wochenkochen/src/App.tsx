@@ -8,8 +8,7 @@ import {
   Settings,
   ShoppingCart,
 } from 'lucide-react'
-import { USERS } from './data/seed'
-import { mealLabel } from './data/seed'
+import { USERS, mealLabel, slotMealLabel } from './data/seed'
 import { useStore } from './store'
 import type { UserId, Weekday } from './types'
 
@@ -249,10 +248,12 @@ function WeekView({
   )
   const plannedCount = useMemo(
     () =>
-      week?.slots.filter((s) => s.recipeId || s.title || s.sideRecipeId || s.sideTitle)
-        .length ?? 0,
+      week?.slots.filter(
+        (s) => s.recipeId || s.title || s.sideRecipeId || s.sideTitle,
+      ).length ?? 0,
     [week],
   )
+  const locked = week?.status === 'locked'
 
   if (!week) return null
 
@@ -339,7 +340,7 @@ function WeekView({
           const side =
             slot.sideTitle ||
             recipes.find((r) => r.id === slot.sideRecipeId)?.title
-          const title = mealLabel(slot.title || recipe?.title, side)
+          const title = slotMealLabel(slot, recipes)
           const hasMeal = Boolean(slot.title || recipe || side)
           return (
             <div
@@ -348,7 +349,7 @@ function WeekView({
             >
               <div className="row">
                 <strong className="grow">{weekdayLabels[slot.day]}</strong>
-                {hasMeal ? (
+                {hasMeal && !locked ? (
                   <button
                     type="button"
                     className="btn ghost sm"
@@ -379,6 +380,8 @@ function WeekView({
                     ))}
                   </div>
                 </>
+              ) : locked ? (
+                <p className="muted tiny">Leer — Plan ist festgenagelt.</p>
               ) : (
                 <button
                   type="button"
@@ -427,7 +430,7 @@ function WeekView({
                     onClick={() => {
                       assignSlot(pickingDay, {
                         recipeId: pendingBase.recipeId,
-                        title: mealLabel(pendingBase.title, r.title),
+                        title: pendingBase.title,
                         sideRecipeId: r.id,
                         sideTitle: r.title,
                       })
@@ -473,7 +476,7 @@ function WeekView({
                         closePicker()
                       }}
                     >
-                      {p.title}
+                      {mealLabel(p.title, p.sideTitle)}
                     </button>
                   ))
                 )}
@@ -514,6 +517,7 @@ function PitchView() {
   const recipes = useStore((s) => s.recipes)
   const allPitches = useStore((s) => s.pitches)
   const activeWeekId = useStore((s) => s.activeWeekId)
+  const weeks = useStore((s) => s.weeks)
   const addPitch = useStore((s) => s.addPitch)
   const reactToPitch = useStore((s) => s.reactToPitch)
   const [title, setTitle] = useState('')
@@ -526,6 +530,11 @@ function PitchView() {
     () => allPitches.filter((p) => p.weekId === activeWeekId),
     [allPitches, activeWeekId],
   )
+  const week = useMemo(
+    () => weeks.find((w) => w.id === activeWeekId),
+    [weeks, activeWeekId],
+  )
+  const locked = week?.status === 'locked'
   const selected = recipes.find((r) => r.id === recipeId)
   const showSideFields =
     attachSide || (selected?.kind ?? 'meal') === 'base' || Boolean(sideRecipeId || sideFree)
@@ -538,15 +547,22 @@ function PitchView() {
         <div>
           <h2>Pitch-Modus</h2>
           <p className="lede">
-            Vorschläge pitchen und abstimmen — z.&nbsp;B. Reis + unterschiedliche
-            Beilagen als eigene Pitches.
+            {locked
+              ? 'Woche ist festgenagelt — zum Weiterpitchen erst wieder öffnen.'
+              : 'Vorschläge pitchen und abstimmen — z. B. Reis + unterschiedliche Beilagen als eigene Pitches.'}
           </p>
         </div>
+        {locked ? (
+          <p className="muted tiny">
+            Abstimmen und neue Pitches sind während „Festgelegt“ gesperrt.
+          </p>
+        ) : null}
         <div className="field">
           <label htmlFor="pitch-recipe">Rezept / Basis</label>
           <select
             id="pitch-recipe"
             value={recipeId}
+            disabled={locked}
             onChange={(e) => {
               setRecipeId(e.target.value)
               const r = recipes.find((x) => x.id === e.target.value)
@@ -570,6 +586,7 @@ function PitchView() {
           <input
             id="pitch-title"
             value={title}
+            disabled={locked}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="z. B. Reis oder Ramen-Abend"
           />
@@ -632,7 +649,7 @@ function PitchView() {
         <button
           type="button"
           className="btn accent"
-          disabled={!title.trim()}
+          disabled={locked || !title.trim()}
           onClick={() => {
             const sideTitle =
               sideFree.trim() ||
@@ -661,7 +678,7 @@ function PitchView() {
           <div className="row">
             <Avatar userId={p.pitchedBy} />
             <div className="grow">
-              <h3>{p.title}</h3>
+              <h3>{mealLabel(p.title, p.sideTitle)}</h3>
               <p className="muted tiny">
                 von {USERS[p.pitchedBy].name}
                 {p.sideTitle || p.sideRecipeId ? ' · Basis + Beilage' : ''}
@@ -681,6 +698,7 @@ function PitchView() {
               <button
                 key={key}
                 type="button"
+                disabled={locked}
                 className={
                   p.reactions[currentUser] === key ? `active-${key}` : ''
                 }
