@@ -73,13 +73,16 @@ async function main() {
   if (await reopen.count()) await reopen.click()
   await page.getByRole('button', { name: 'Gericht wählen' }).first().click()
   await page.locator('.modal').getByRole('button', { name: 'TM Tomatensuppe' }).click()
-
-  await page.locator('.bottom-nav button', { hasText: 'Bring' }).click()
-  await page.getByRole('button', { name: 'Aus Plan bauen' }).click()
-  await page.getByRole('button', { name: 'An Bring senden' }).click()
+  await page.getByRole('button', { name: 'Woche festnageln' }).click()
+  await page.getByText('Festgelegt').waitFor()
+  // Impulse only after lock
+  const toShop = page.getByRole('button', { name: /Einkaufsliste|Bring/i })
+  if (await toShop.count()) await toShop.first().click()
+  else await page.locator('.bottom-nav button', { hasText: 'Bring' }).click()
+  await page.getByRole('button', { name: /Liste aus Plan laden|Aus Plan bauen/i }).click()
   await page.locator('.flash').waitFor()
   await shot(page, '06-wendy-bring-push')
-  log.push('Scenario 2 PASS: Wendy settings forms + Cookidoo manual import + Bring push UI')
+  log.push('Scenario 2 PASS: Wendy settings + lock week then shopping impulse')
 
   console.log(log.join('\n'))
   await browser.close()

@@ -209,11 +209,18 @@ function BottomNav({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
   )
 }
 
-function WeekView({ onPitch }: { onPitch: () => void }) {
+function WeekView({
+  onPitch,
+  onShop,
+}: {
+  onPitch: () => void
+  onShop: () => void
+}) {
   const weeks = useStore((s) => s.weeks)
   const activeWeekId = useStore((s) => s.activeWeekId)
   const recipes = useStore((s) => s.recipes)
   const allPitches = useStore((s) => s.pitches)
+  const bringEnabled = useStore((s) => s.settings.bring.enabled)
   const assignSlot = useStore((s) => s.assignSlot)
   const clearSlot = useStore((s) => s.clearSlot)
   const lockWeek = useStore((s) => s.lockWeek)
@@ -239,6 +246,12 @@ function WeekView({ onPitch }: { onPitch: () => void }) {
   const mainRecipes = useMemo(
     () => recipes.filter((r) => (r.kind ?? 'meal') !== 'side'),
     [recipes],
+  )
+  const plannedCount = useMemo(
+    () =>
+      week?.slots.filter((s) => s.recipeId || s.title || s.sideRecipeId || s.sideTitle)
+        .length ?? 0,
+    [week],
   )
 
   if (!week) return null
@@ -281,16 +294,43 @@ function WeekView({ onPitch }: { onPitch: () => void }) {
               <button type="button" className="btn sm" onClick={onPitch}>
                 Zum Pitch
               </button>
-              <button type="button" className="btn sm accent" onClick={lockWeek}>
+              <button
+                type="button"
+                className="btn sm accent"
+                onClick={lockWeek}
+                disabled={plannedCount === 0}
+              >
                 Woche festnageln
               </button>
             </>
           ) : (
-            <button type="button" className="btn sm secondary" onClick={reopenWeek}>
-              Wieder öffnen
-            </button>
+            <>
+              <button type="button" className="btn sm secondary" onClick={reopenWeek}>
+                Wieder öffnen
+              </button>
+              {bringEnabled ? (
+                <button type="button" className="btn sm accent" onClick={onShop}>
+                  Zur Einkaufsliste / Bring
+                </button>
+              ) : (
+                <button type="button" className="btn sm" onClick={onShop}>
+                  Einkaufsliste bauen
+                </button>
+              )}
+            </>
           )}
         </div>
+        {week.status === 'pitching' ? (
+          <p className="muted tiny" style={{ marginTop: 10 }}>
+            Einkaufen geht erst nach „Woche festnageln“ — dann bewusst an Bring
+            senden.
+          </p>
+        ) : (
+          <p className="muted tiny" style={{ marginTop: 10 }}>
+            Plan steht ({plannedCount} Tage). Jetzt kannst du die Zutaten
+            bewusst auf die Einkaufsliste / Bring legen.
+          </p>
+        )}
       </div>
 
       <div className="day-grid">
@@ -927,9 +967,11 @@ function RecipesView() {
   )
 }
 
-function ShopView() {
+function ShopView({ onPlan }: { onPlan: () => void }) {
   const settings = useStore((s) => s.settings)
   const shoppingDraft = useStore((s) => s.shoppingDraft)
+  const weeks = useStore((s) => s.weeks)
+  const activeWeekId = useStore((s) => s.activeWeekId)
   const buildShoppingList = useStore((s) => s.buildShoppingList)
   const pushToBring = useStore((s) => s.pushToBring)
   const [flash, setFlash] = useState<{ ok: boolean; message: string } | null>(
@@ -937,6 +979,11 @@ function ShopView() {
   )
   const [busy, setBusy] = useState(false)
 
+  const week = useMemo(
+    () => weeks.find((w) => w.id === activeWeekId),
+    [weeks, activeWeekId],
+  )
+  const locked = week?.status === 'locked'
   const items = useMemo(
     () => (shoppingDraft.length ? shoppingDraft : []),
     [shoppingDraft],
@@ -949,55 +996,85 @@ function ShopView() {
           <div>
             <h2>Einkaufsliste</h2>
             <p className="lede">
-              Zutaten aus dem Wochenplan — an Bring senden (mit gültigem Login).
+              Erst wenn die Woche festgenagelt ist — dann bewusst an Bring
+              senden.
             </p>
           </div>
           <span
-            className={`status-pill ${settings.bring.enabled && settings.bring.linked ? '' : 'off'}`}
+            className={`status-pill ${locked ? '' : 'warn'}`}
           >
-            {settings.bring.enabled
-              ? settings.bring.linked
-                ? 'Bring linked'
-                : 'Bring an'
-              : 'Bring aus'}
+            {locked ? 'Plan final' : 'Noch Pitch'}
           </span>
         </div>
-        <div className="row wrap">
-          <button
-            type="button"
-            className="btn sm"
-            onClick={() => {
-              buildShoppingList()
-              setFlash({ ok: true, message: 'Liste aus Wochenplan gebaut.' })
-            }}
-          >
-            Aus Plan bauen
-          </button>
-          <button
-            type="button"
-            className="btn sm accent"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true)
-              const res = await pushToBring()
-              setFlash({ ok: res.ok, message: res.message })
-              setBusy(false)
-            }}
-          >
-            {busy ? 'Sende…' : 'An Bring senden'}
-          </button>
-        </div>
-        {settings.bring.enabled && settings.bring.linked ? (
-          <p className="muted tiny">
-            Ziel: {settings.bring.listName || 'Liste'}
-            {settings.bring.accountName ? ` · ${settings.bring.accountName}` : ''}
-            {settings.bring.email ? ` · ${settings.bring.email}` : ''}
-          </p>
+
+        {!locked ? (
+          <>
+            <p className="muted">
+              Während der Pitch-Phase wird nichts auf die Einkaufsliste / Bring
+              geschrieben. Gerichte festlegen, Woche festnageln, dann hierher
+              zurück.
+            </p>
+            <button type="button" className="btn secondary" onClick={onPlan}>
+              Zum Wochenplan
+            </button>
+          </>
         ) : (
-          <p className="muted tiny">
-            Unter Menü → Einstellungen Bring mit E-Mail &amp; Passwort
-            verknüpfen, dann hier pushen.
-          </p>
+          <>
+            <div className="row wrap">
+              <button
+                type="button"
+                className="btn sm"
+                onClick={() => {
+                  const list = buildShoppingList()
+                  setFlash({
+                    ok: list.length > 0,
+                    message:
+                      list.length > 0
+                        ? `${list.length} Zutaten aus dem finalen Plan.`
+                        : 'Im finalen Plan sind noch keine Gerichte mit Zutaten.',
+                  })
+                }}
+              >
+                Liste aus Plan laden
+              </button>
+              <button
+                type="button"
+                className="btn sm accent"
+                disabled={
+                  busy ||
+                  !settings.bring.enabled ||
+                  !settings.bring.linked ||
+                  items.length === 0
+                }
+                onClick={async () => {
+                  setBusy(true)
+                  const res = await pushToBring()
+                  setFlash({ ok: res.ok, message: res.message })
+                  setBusy(false)
+                }}
+              >
+                {busy ? 'Sende…' : 'Jetzt an Bring senden'}
+              </button>
+            </div>
+            {settings.bring.enabled && settings.bring.linked ? (
+              <p className="muted tiny">
+                Ziel: {settings.bring.listName || 'Liste'}
+                {settings.bring.accountName
+                  ? ` · ${settings.bring.accountName}`
+                  : ''}
+                {settings.bring.email ? ` · ${settings.bring.email}` : ''}
+              </p>
+            ) : settings.bring.enabled ? (
+              <p className="muted tiny">
+                Bring ist an, aber noch nicht eingeloggt — Menü → Einstellungen.
+              </p>
+            ) : (
+              <p className="muted tiny">
+                Bring optional unter Menü → Einstellungen einschalten. Die Liste
+                unten kannst du trotzdem laden.
+              </p>
+            )}
+          </>
         )}
         {settings.bring.lastError ? (
           <p className="muted tiny" style={{ color: 'var(--bad)' }}>
@@ -1011,9 +1088,18 @@ function ShopView() {
       ) : null}
 
       <ul className="shopping-list panel">
-        {items.length === 0 ? (
+        {!locked ? (
           <li>
-            <span className="muted">Noch leer — erst „Aus Plan bauen“.</span>
+            <span className="muted">
+              Wartet auf finalen Wochenplan („Woche festnageln“).
+            </span>
+          </li>
+        ) : items.length === 0 ? (
+          <li>
+            <span className="muted">
+              Noch leer — „Liste aus Plan laden“, dann bei Bedarf an Bring
+              senden.
+            </span>
           </li>
         ) : (
           items.map((item) => (
@@ -1336,7 +1422,8 @@ function HelpView({ onOpenSettings }: { onOpenSettings: () => void }) {
           </li>
           <li>
             <strong>Plan</strong> — Gerichte den Wochentagen zuordnen; bei einer
-            Basis danach die Beilage wählen.
+            Basis danach die Beilage wählen. Erst nach „Woche festnageln“
+            Einkaufsliste laden / an Bring senden.
           </li>
           <li>
             <strong>Rezepte</strong> — Bibliothek als Gericht, Basis oder
@@ -1392,10 +1479,15 @@ export default function App() {
   return (
     <div className="app-shell">
       <TopBar tab={tab} onOpenMenuPage={setTab} />
-      {tab === 'week' ? <WeekView onPitch={() => setTab('pitch')} /> : null}
+      {tab === 'week' ? (
+        <WeekView
+          onPitch={() => setTab('pitch')}
+          onShop={() => setTab('shop')}
+        />
+      ) : null}
       {tab === 'pitch' ? <PitchView /> : null}
       {tab === 'recipes' ? <RecipesView /> : null}
-      {tab === 'shop' ? <ShopView /> : null}
+      {tab === 'shop' ? <ShopView onPlan={() => setTab('week')} /> : null}
       {tab === 'settings' ? <SettingsView /> : null}
       {tab === 'help' ? (
         <HelpView onOpenSettings={() => setTab('settings')} />

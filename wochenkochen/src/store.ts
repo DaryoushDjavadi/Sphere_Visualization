@@ -274,6 +274,7 @@ export const useStore = create<Store>()(
           weeks: get().weeks.map((w) =>
             w.id === get().activeWeekId ? { ...w, status: 'pitching' } : w,
           ),
+          shoppingDraft: [],
         })
       },
 
@@ -365,7 +366,17 @@ export const useStore = create<Store>()(
         }),
 
       pushToBring: async () => {
-        const { settings, shoppingDraft, buildShoppingList } = get()
+        const { settings, shoppingDraft, buildShoppingList, weeks, activeWeekId } =
+          get()
+        const week = weeks.find((w) => w.id === activeWeekId)
+        if (!week || week.status !== 'locked') {
+          return {
+            ok: false,
+            message:
+              'Erst Woche festnageln — erst dann bewusst an Bring senden.',
+            items: [],
+          }
+        }
         const items =
           shoppingDraft.length > 0 ? shoppingDraft : buildShoppingList()
         if (!settings.bring.enabled) {
@@ -390,7 +401,7 @@ export const useStore = create<Store>()(
         if (items.length === 0) {
           return {
             ok: false,
-            message: 'Keine Zutaten im Wochenplan – erst Gerichte festlegen.',
+            message: 'Keine Zutaten im finalen Wochenplan.',
             items: [],
           }
         }
