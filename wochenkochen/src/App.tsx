@@ -417,6 +417,7 @@ function RecipesView() {
   const settings = useStore((s) => s.settings)
   const addRecipe = useStore((s) => s.addRecipe)
   const importCookidooRecipe = useStore((s) => s.importCookidooRecipe)
+  const importFromCookidooAccount = useStore((s) => s.importFromCookidooAccount)
   const [open, setOpen] = useState(false)
   const [cookidooOpen, setCookidooOpen] = useState(false)
   const [title, setTitle] = useState('')
@@ -427,6 +428,8 @@ function RecipesView() {
   const [cUrl, setCUrl] = useState('')
   const [cIngredients, setCIngredients] = useState('')
   const [cNotes, setCNotes] = useState('')
+  const [cBusy, setCBusy] = useState(false)
+  const [cFlash, setCFlash] = useState<string | null>(null)
 
   return (
     <div className="stack">
@@ -552,14 +555,52 @@ function RecipesView() {
         <div className="modal-backdrop" onClick={() => setCookidooOpen(false)}>
           <div className="modal stack" onClick={(e) => e.stopPropagation()}>
             <h2>Cookidoo Import</h2>
-            <p className="lede">
-              Link + Titel + Zutaten einfügen. Vollautomatischer Library-Sync
-              kommt später (kein offizielles API).
-            </p>
+            {settings.cookidoo.linked ? (
+              <>
+                <p className="lede">
+                  Mit verknüpftem Konto: Link oder Rezept-ID laden (z.&nbsp;B.
+                  https://cookidoo.de/…/r59322 oder r59322).
+                </p>
+                <div className="field">
+                  <label htmlFor="c-url">Cookidoo-Link oder ID</label>
+                  <input
+                    id="c-url"
+                    value={cUrl}
+                    onChange={(e) => setCUrl(e.target.value)}
+                    placeholder="https://cookidoo.de/.../r123 oder r123"
+                  />
+                </div>
+                {cFlash ? <div className="flash">{cFlash}</div> : null}
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={!cUrl.trim() || cBusy}
+                  onClick={async () => {
+                    setCBusy(true)
+                    const res = await importFromCookidooAccount(cUrl.trim())
+                    setCFlash(res.message)
+                    setCBusy(false)
+                    if (res.ok) {
+                      setCUrl('')
+                      setTimeout(() => setCookidooOpen(false), 700)
+                    }
+                  }}
+                >
+                  {cBusy ? 'Lade…' : 'Vom Konto laden'}
+                </button>
+                <div className="divider" />
+                <p className="muted tiny">Oder manuell eintragen:</p>
+              </>
+            ) : (
+              <p className="lede">
+                Konto unter Mehr verknüpfen für Auto-Import — oder Titel, Link und
+                Zutaten manuell einfügen.
+              </p>
+            )}
             <div className="field">
-              <label htmlFor="c-url">Cookidoo-Link</label>
+              <label htmlFor="c-url-manual">Cookidoo-Link</label>
               <input
-                id="c-url"
+                id="c-url-manual"
                 value={cUrl}
                 onChange={(e) => setCUrl(e.target.value)}
                 placeholder="https://cookidoo.de/..."
@@ -583,7 +624,7 @@ function RecipesView() {
             </div>
             <button
               type="button"
-              className="btn"
+              className="btn secondary"
               disabled={!cUrl.trim() || !cTitle.trim()}
               onClick={() => {
                 importCookidooRecipe({
@@ -599,7 +640,7 @@ function RecipesView() {
                 setCookidooOpen(false)
               }}
             >
-              Importieren
+              Manuell speichern
             </button>
           </div>
         </div>
@@ -612,10 +653,11 @@ function ShopView() {
   const settings = useStore((s) => s.settings)
   const shoppingDraft = useStore((s) => s.shoppingDraft)
   const buildShoppingList = useStore((s) => s.buildShoppingList)
-  const pushToBringDemo = useStore((s) => s.pushToBringDemo)
+  const pushToBring = useStore((s) => s.pushToBring)
   const [flash, setFlash] = useState<{ ok: boolean; message: string } | null>(
     null,
   )
+  const [busy, setBusy] = useState(false)
 
   const items = useMemo(
     () => (shoppingDraft.length ? shoppingDraft : []),
@@ -629,7 +671,7 @@ function ShopView() {
           <div>
             <h2>Einkaufsliste</h2>
             <p className="lede">
-              Zutaten aus dem Wochenplan — optional nach Bring pushen.
+              Zutaten aus dem Wochenplan — an Bring senden (mit gültigem Login).
             </p>
           </div>
           <span
@@ -656,25 +698,34 @@ function ShopView() {
           <button
             type="button"
             className="btn sm accent"
-            onClick={() => {
-              const res = pushToBringDemo()
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true)
+              const res = await pushToBring()
               setFlash({ ok: res.ok, message: res.message })
+              setBusy(false)
             }}
           >
-            An Bring senden
+            {busy ? 'Sende…' : 'An Bring senden'}
           </button>
         </div>
         {settings.bring.enabled && settings.bring.linked ? (
           <p className="muted tiny">
-            Ziel: {settings.bring.listName || 'Einkaufen'}
+            Ziel: {settings.bring.listName || 'Liste'}
+            {settings.bring.accountName ? ` · ${settings.bring.accountName}` : ''}
             {settings.bring.email ? ` · ${settings.bring.email}` : ''}
           </p>
         ) : (
           <p className="muted tiny">
-            Bring in den Einstellungen aktivieren &amp; verknüpfen, um den Push
-            zu testen.
+            Unter Mehr → Bring mit E-Mail &amp; Passwort verknüpfen, dann hier
+            pushen.
           </p>
         )}
+        {settings.bring.lastError ? (
+          <p className="muted tiny" style={{ color: 'var(--bad)' }}>
+            {settings.bring.lastError}
+          </p>
+        ) : null}
       </div>
 
       {flash ? (
@@ -698,7 +749,7 @@ function ShopView() {
 
       {settings.bring.lastPushItems?.length ? (
         <div className="panel stack">
-          <h3>Letzter Demo-Push</h3>
+          <h3>Letzter Bring-Push</h3>
           <p className="muted tiny">
             {settings.bring.lastPushAt
               ? new Date(settings.bring.lastPushAt).toLocaleString('de-DE')
@@ -719,14 +770,33 @@ function SettingsView() {
   const settings = useStore((s) => s.settings)
   const updateBring = useStore((s) => s.updateBring)
   const updateCookidoo = useStore((s) => s.updateCookidoo)
+  const linkBring = useStore((s) => s.linkBring)
+  const unlinkBring = useStore((s) => s.unlinkBring)
+  const linkCookidoo = useStore((s) => s.linkCookidoo)
+  const unlinkCookidoo = useStore((s) => s.unlinkCookidoo)
   const resetDemoData = useStore((s) => s.resetDemoData)
   const logout = useStore((s) => s.logout)
+
+  const [bringPassword, setBringPassword] = useState('')
+  const [cookPassword, setCookPassword] = useState('')
+  const [bringBusy, setBringBusy] = useState(false)
+  const [cookBusy, setCookBusy] = useState(false)
+  const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(
+    null,
+  )
 
   return (
     <div className="stack">
       <div className="panel">
         <h2>Integrationen</h2>
-        <p className="lede">Optionale Toggles — zum Testen an/aus.</p>
+        <p className="lede">
+          Optional: echte Logins für Bring! und Cookidoo (über PHP-Proxy auf dem
+          Webspace).
+        </p>
+
+        {status ? (
+          <div className={`flash ${status.ok ? '' : 'bad'}`}>{status.message}</div>
+        ) : null}
 
         <div className="toggle-row">
           <div>
@@ -741,7 +811,14 @@ function SettingsView() {
             onClick={() =>
               updateBring({
                 enabled: !settings.bring.enabled,
-                linked: settings.bring.enabled ? false : settings.bring.linked,
+                ...(settings.bring.enabled
+                  ? {
+                      linked: false,
+                      accessToken: '',
+                      refreshToken: '',
+                      userUuid: '',
+                    }
+                  : {}),
               })
             }
           />
@@ -753,48 +830,91 @@ function SettingsView() {
               <label htmlFor="bring-email">Bring E-Mail</label>
               <input
                 id="bring-email"
+                type="email"
                 value={settings.bring.email}
                 onChange={(e) => updateBring({ email: e.target.value })}
                 placeholder="ihr@email.de"
-                autoComplete="email"
+                autoComplete="username"
               />
             </div>
             <div className="field">
-              <label htmlFor="bring-list">Listenname</label>
+              <label htmlFor="bring-password">Bring Passwort</label>
               <input
-                id="bring-list"
-                value={settings.bring.listName}
-                onChange={(e) => updateBring({ listName: e.target.value })}
-                placeholder="Einkaufen"
+                id="bring-password"
+                type="password"
+                value={bringPassword}
+                onChange={(e) => setBringPassword(e.target.value)}
+                placeholder="••••••••"
+                autoComplete="current-password"
               />
             </div>
-            <div className="field">
-              <label htmlFor="bring-uuid">List UUID (optional, später API)</label>
-              <input
-                id="bring-uuid"
-                value={settings.bring.listUuid}
-                onChange={(e) => updateBring({ listUuid: e.target.value })}
-                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-              />
+            {settings.bring.lists.length > 0 ? (
+              <div className="field">
+                <label htmlFor="bring-list-select">Liste</label>
+                <select
+                  id="bring-list-select"
+                  value={settings.bring.listUuid}
+                  onChange={(e) => {
+                    const list = settings.bring.lists.find(
+                      (l) => l.listUuid === e.target.value,
+                    )
+                    updateBring({
+                      listUuid: e.target.value,
+                      listName: list?.name || settings.bring.listName,
+                    })
+                  }}
+                >
+                  {settings.bring.lists.map((l) => (
+                    <option key={l.listUuid} value={l.listUuid}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            <div className="row wrap">
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={bringBusy || !settings.bring.email || !bringPassword}
+                onClick={async () => {
+                  setBringBusy(true)
+                  const res = await linkBring(settings.bring.email, bringPassword)
+                  setStatus(res)
+                  if (res.ok) setBringPassword('')
+                  setBringBusy(false)
+                }}
+              >
+                {bringBusy
+                  ? 'Verbinde…'
+                  : settings.bring.linked
+                    ? 'Erneut einloggen'
+                    : 'Bring-Konto verknüpfen'}
+              </button>
+              {settings.bring.linked ? (
+                <button
+                  type="button"
+                  className="btn ghost sm"
+                  onClick={() => {
+                    unlinkBring()
+                    setStatus({ ok: true, message: 'Bring getrennt.' })
+                  }}
+                >
+                  Trennen
+                </button>
+              ) : null}
             </div>
-            <button
-              type="button"
-              className="btn secondary"
-              onClick={() =>
-                updateBring({
-                  linked: true,
-                  listName: settings.bring.listName || 'Einkaufen',
-                })
-              }
-            >
-              {settings.bring.linked ? 'Erneut verknüpfen' : 'Bring verknüpfen (Demo)'}
-            </button>
             {settings.bring.linked ? (
-              <span className="status-pill">Verknüpft</span>
+              <span className="status-pill">
+                Verknüpft
+                {settings.bring.accountName
+                  ? ` · ${settings.bring.accountName}`
+                  : ''}
+              </span>
             ) : null}
             <p className="muted tiny">
-              Browser-Demo speichert die Verknüpfung lokal. Echter API-Push
-              braucht später Backend (CORS).
+              Login läuft über <code>api/bring.php</code> auf dem Webspace (kein
+              CORS). Danach: Wochenplan → Bring-Tab → „An Bring senden“.
             </p>
           </div>
         ) : null}
@@ -802,7 +922,7 @@ function SettingsView() {
         <div className="toggle-row">
           <div>
             <strong>Cookidoo</strong>
-            <p className="muted tiny">Thermomix-Rezepte per Link</p>
+            <p className="muted tiny">Thermomix-Konto &amp; Rezept-Import</p>
           </div>
           <button
             type="button"
@@ -812,9 +932,9 @@ function SettingsView() {
             onClick={() =>
               updateCookidoo({
                 enabled: !settings.cookidoo.enabled,
-                linked: settings.cookidoo.enabled
-                  ? false
-                  : settings.cookidoo.linked,
+                ...(settings.cookidoo.enabled
+                  ? { linked: false, accessToken: '', refreshToken: '' }
+                  : {}),
               })
             }
           />
@@ -823,31 +943,87 @@ function SettingsView() {
         {settings.cookidoo.enabled ? (
           <div className="stack" style={{ marginTop: 8 }}>
             <div className="field">
-              <label htmlFor="cook-hint">Account-Hinweis</label>
+              <label htmlFor="cook-email">Cookidoo E-Mail</label>
               <input
-                id="cook-hint"
-                value={settings.cookidoo.accountHint}
-                onChange={(e) =>
-                  updateCookidoo({ accountHint: e.target.value })
-                }
-                placeholder="z. B. Wendy's Cookidoo"
+                id="cook-email"
+                type="email"
+                value={settings.cookidoo.email}
+                onChange={(e) => updateCookidoo({ email: e.target.value })}
+                placeholder="ihr@email.de"
+                autoComplete="username"
               />
             </div>
-            <button
-              type="button"
-              className="btn secondary"
-              onClick={() => updateCookidoo({ linked: true })}
-            >
-              {settings.cookidoo.linked
-                ? 'Cookidoo bereit'
-                : 'Cookidoo freischalten'}
-            </button>
+            <div className="field">
+              <label htmlFor="cook-password">Cookidoo Passwort</label>
+              <input
+                id="cook-password"
+                type="password"
+                value={cookPassword}
+                onChange={(e) => setCookPassword(e.target.value)}
+                placeholder="••••••••"
+                autoComplete="current-password"
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="cook-country">Land</label>
+              <select
+                id="cook-country"
+                value={settings.cookidoo.country}
+                onChange={(e) => updateCookidoo({ country: e.target.value })}
+              >
+                <option value="de">Deutschland</option>
+                <option value="at">Österreich</option>
+                <option value="ch">Schweiz</option>
+                <option value="ie">UK / IE</option>
+              </select>
+            </div>
+            <div className="row wrap">
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={cookBusy || !settings.cookidoo.email || !cookPassword}
+                onClick={async () => {
+                  setCookBusy(true)
+                  const res = await linkCookidoo(
+                    settings.cookidoo.email,
+                    cookPassword,
+                    settings.cookidoo.country,
+                  )
+                  setStatus(res)
+                  if (res.ok) setCookPassword('')
+                  setCookBusy(false)
+                }}
+              >
+                {cookBusy
+                  ? 'Verbinde…'
+                  : settings.cookidoo.linked
+                    ? 'Erneut einloggen'
+                    : 'Cookidoo-Konto verknüpfen'}
+              </button>
+              {settings.cookidoo.linked ? (
+                <button
+                  type="button"
+                  className="btn ghost sm"
+                  onClick={() => {
+                    unlinkCookidoo()
+                    setStatus({ ok: true, message: 'Cookidoo getrennt.' })
+                  }}
+                >
+                  Trennen
+                </button>
+              ) : null}
+            </div>
             {settings.cookidoo.linked ? (
-              <span className="status-pill">Import in Rezepte aktiv</span>
+              <span className="status-pill">Verknüpft · Rezepte importierbar</span>
+            ) : null}
+            {settings.cookidoo.lastError ? (
+              <p className="muted tiny" style={{ color: 'var(--bad)' }}>
+                {settings.cookidoo.lastError}
+              </p>
             ) : null}
             <p className="muted tiny">
-              Unter Rezepte erscheint „Cookidoo import“. Kein offizieller
-              Library-Sync.
+              Nach dem Login: unter Rezepte „Cookidoo import“ mit Link oder ID
+              (z.&nbsp;B. r59322). Läuft über <code>api/cookidoo.php</code>.
             </p>
           </div>
         ) : null}

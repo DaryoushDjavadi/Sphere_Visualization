@@ -19,6 +19,7 @@ export interface Recipe {
   ingredients: Ingredient[]
   notes?: string
   cookidooUrl?: string
+  cookidooId?: string
   createdBy: UserId
   createdAt: string
 }
@@ -51,21 +52,39 @@ export interface WeekPlan {
   createdAt: string
 }
 
+export interface BringListOption {
+  listUuid: string
+  name: string
+}
+
 export interface BringSettings {
   enabled: boolean
   linked: boolean
   email: string
+  /** Kept only in memory for the link form — not required after token login */
   listName: string
   listUuid: string
+  userUuid: string
+  accessToken: string
+  refreshToken: string
+  accountName: string
+  lists: BringListOption[]
   lastPushAt?: string
   lastPushItems?: string[]
+  lastError?: string
 }
 
 export interface CookidooSettings {
   enabled: boolean
   linked: boolean
-  accountHint: string
+  email: string
+  country: string
+  accessToken: string
+  refreshToken: string
+  language: string
   lastImportUrl?: string
+  lastError?: string
+  suggestions: { title: string; id?: string | null }[]
 }
 
 export interface AppSettings {
