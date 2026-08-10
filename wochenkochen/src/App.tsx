@@ -9,7 +9,6 @@ import {
 import { USERS } from './data/seed'
 import { useStore } from './store'
 import type { UserId, Weekday } from './types'
-import './styles.css'
 
 type Tab = 'week' | 'pitch' | 'recipes' | 'shop' | 'settings'
 
