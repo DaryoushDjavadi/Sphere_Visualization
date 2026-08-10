@@ -598,6 +598,7 @@ function PitchView() {
               <select
                 id="pitch-side"
                 value={sideRecipeId}
+                disabled={locked}
                 onChange={(e) => {
                   setSideRecipeId(e.target.value)
                   if (e.target.value) setSideFree('')
@@ -616,6 +617,7 @@ function PitchView() {
               <input
                 id="pitch-side-free"
                 value={sideFree}
+                disabled={locked}
                 onChange={(e) => {
                   setSideFree(e.target.value)
                   if (e.target.value) setSideRecipeId('')
@@ -642,6 +644,7 @@ function PitchView() {
           <textarea
             id="pitch-note"
             value={note}
+            disabled={locked}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Warum cool? Zeitaufwand? Wünsche?"
           />

@@ -1,46 +1,83 @@
 # Wochenkochen
 
-Mobile-first web demo for Darius & Wendy: pitch dishes for next week, lock a plan, send shopping lists to **Bring!** with a real login, and import **Cookidoo** recipes after linking your account.
+Mobile-first weekly meal planner for **Darius & Wendy**.
 
-## Upload to your website (no build needed)
+Pitch dishes → vote → lock the week → then consciously send ingredients to **Bring!**. Optional **Cookidoo** login to import recipes.
 
-Upload **everything inside** the `www/` folder to your webspace (FTP / Wavespace / file manager):
+---
 
-- `index.html`
-- `favicon.svg`
-- `assets/`
-- `api/bring.php`
-- `api/cookidoo.php`
+## Download & upload to your website
 
-Your host must support **PHP + curl** (typical shared webspace). That is what makes Bring/Cookidoo logins work (browser cannot call those APIs directly because of CORS).
+**Branch:** `cursor/wochenkochen-web-demo-c171`
 
-## App login
+### Option A — only the finished site (recommended)
 
-Tap **Darius** or **Wendy** — household data in `localStorage`.
+1. Download / clone this branch from GitHub  
+2. Open folder: `wochenkochen/www/`  
+3. Upload **all contents** of `www/` to your webspace (FTP / file manager):
 
-Top-left **Menü**: Einstellungen · Hilfe · Abmelden.
+```
+index.html
+favicon.svg
+assets/
+api/bring.php
+api/cookidoo.php
+```
 
-Bottom nav: Plan · Pitch · Rezepte — **Bring** only appears when enabled in Settings.
+4. Open the URL where `index.html` lives  
 
-## Integrations
+**Requirements:** PHP + curl on the host (needed for Bring / Cookidoo logins).  
+There is **no `dist` folder** — `www/` is the uploadable build.
 
-Bring! and Cookidoo are **optional** (off by default).
+### Option B — full source
 
-### Bring!
-1. Menü → Einstellungen → toggle Bring on  
-2. Enter Bring e-mail + password → **Bring-Konto verknüpfen**  
-3. Pick the shopping list  
-4. Plan meals → Bring tab → **An Bring senden**
+```bash
+git clone -b cursor/wochenkochen-web-demo-c171 <your-repo-url>
+cd Sphere_Visualization/wochenkochen
+npm install
+npm run build   # refreshes www/
+```
 
-### Cookidoo
-1. Menü → Einstellungen → toggle Cookidoo on  
-2. Enter Cookidoo e-mail + password + country → **Cookidoo-Konto verknüpfen**  
-3. Rezepte → **Cookidoo import** → paste link or id → **Vom Konto laden**  
-4. Or fill title/ingredients manually if auto-import fails  
+---
 
-Cookidoo’s password grant is being phased out by Vorwerk; if login fails, use manual import and check the error text in Settings.
+## How the app works
 
-## Develop locally (optional)
+| Step | What |
+|------|------|
+| 1 | Login as **Darius** or **Wendy** |
+| 2 | **Pitch** ideas (Yes / Maybe / Nope). Bases like *Reis* can get different sides. |
+| 3 | **Plan** — assign meals to days (base → then side if needed) |
+| 4 | **Woche festnageln** — plan freezes |
+| 5 | Only then: load shopping list / **Jetzt an Bring senden** |
+
+Top-left **Menü**: Einstellungen · Hilfe · Abmelden  
+
+Bottom nav: Plan · Pitch · Rezepte — **Bring** tab only if Bring is enabled in Settings.
+
+### Recipes
+
+- Types: **Gericht** · **Basis** (e.g. rice) · **Beilage**  
+- Seed examples included for testing (rice, noodles, sides, pasta, tacos, …)  
+- Add new recipes anytime under Rezepte → Neu  
+
+### Cookidoo (optional)
+
+1. Menü → Einstellungen → enable Cookidoo  
+2. Enter e-mail + password + country → link account  
+3. Rezepte → Cookidoo import → paste link/ID → **Vom Konto laden**  
+4. Or save title + ingredients manually if auto-login fails  
+
+### Bring! (optional)
+
+1. Menü → Einstellungen → enable Bring  
+2. Enter e-mail + password → link → choose list  
+3. After the week is **locked**: Einkaufsliste → load from plan → **Jetzt an Bring senden**  
+
+Nothing is sent to Bring during the pitch phase.
+
+---
+
+## Local development
 
 ```bash
 cd wochenkochen
@@ -48,8 +85,15 @@ npm install
 npm run dev
 ```
 
-PHP APIs need a PHP-capable host (or `php -S` pointed at `www/` after build). Refresh uploadable files:
-
 ```bash
-npm run build   # writes to www/
+npm run build          # write www/
+node scripts/logic-check.mjs
 ```
+
+---
+
+## Notes
+
+- Household data is stored in the browser (`localStorage`)  
+- Passwords are not persisted — only session tokens after a successful link  
+- Bring / Cookidoo use unofficial APIs via PHP proxies; Cookidoo password-grant may stop working if Vorwerk changes auth  
