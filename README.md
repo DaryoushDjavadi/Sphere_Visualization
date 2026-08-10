@@ -4,4 +4,4 @@ Processing globe sketch (legacy).
 
 ## Wochenkochen demo
 
-See [`wochenkochen/`](./wochenkochen/) — mobile-first weekly meal planner for Darius & Wendy (Pitch → Plan → Bring/Cookidoo toggles).
+See [`wochenkochen/`](./wochenkochen/). Upload the contents of [`wochenkochen/www/`](./wochenkochen/www/) to your website (finished static files — no `dist` folder).

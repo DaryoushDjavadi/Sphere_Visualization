@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 
+# `www/` is the committed uploadable build — do not ignore it.
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

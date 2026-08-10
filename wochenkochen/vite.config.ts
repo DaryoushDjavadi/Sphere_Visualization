@@ -5,6 +5,11 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   base: './',
+  build: {
+    // Finished uploadable site (not `dist`) — copy contents of `www/` to your webspace.
+    outDir: 'www',
+    emptyOutDir: true,
+  },
   server: {
     host: true,
     port: 5173,

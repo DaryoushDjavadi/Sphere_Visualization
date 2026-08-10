@@ -7,5 +7,5 @@ application.windows64
 application.macosx
 node_modules/
 dist/
-.DS_Store
 *.local
+# Wochenkochen uploadable site lives in wochenkochen/www/ (committed)

@@ -2,22 +2,17 @@
 
 Mobile-first web demo for Darius & Wendy: pitch dishes for next week, lock a plan, optionally push a shopping list toward Bring!, and import Cookidoo links.
 
-## Run locally
+## Upload to your website (no build needed)
 
-```bash
-cd wochenkochen
-npm install
-npm run dev
-```
+Upload **everything inside** the `www/` folder to your webspace (FTP / Wavespace / file manager):
 
-## Build for Wavespace / static hosting
+- `index.html`
+- `favicon.svg`
+- `assets/`
 
-```bash
-cd wochenkochen
-npm run build
-```
+Do **not** upload a `dist` folder — the finished site is already in `www/`.
 
-Upload the contents of `wochenkochen/dist/` to your webspace. `base: './'` keeps asset paths relative.
+After upload, open the URL where you placed `index.html`.
 
 ## Demo accounts
 
@@ -32,3 +27,17 @@ Tap **Darius** or **Wendy** on the login screen (no password). Shared household 
 - Shopping list built from planned recipes; demo “push to Bring” when linked
 
 Bring push is a local demo (browser CORS). Cookidoo import is link + manual ingredients (no official API).
+
+## Develop locally (optional)
+
+```bash
+cd wochenkochen
+npm install
+npm run dev
+```
+
+To refresh the uploadable site after code changes:
+
+```bash
+npm run build   # writes to www/
+```
