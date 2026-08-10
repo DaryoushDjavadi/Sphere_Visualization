@@ -67,7 +67,12 @@ function LoginScreen() {
 function TopBar() {
   const currentUser = useStore((s) => s.currentUser)!
   const logout = useStore((s) => s.logout)
-  const week = useStore((s) => s.weeks.find((w) => w.id === s.activeWeekId))
+  const weeks = useStore((s) => s.weeks)
+  const activeWeekId = useStore((s) => s.activeWeekId)
+  const week = useMemo(
+    () => weeks.find((w) => w.id === activeWeekId),
+    [weeks, activeWeekId],
+  )
   return (
     <header className="topbar">
       <div className="brand-mark">
@@ -108,16 +113,24 @@ function BottomNav({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
 }
 
 function WeekView({ onPitch }: { onPitch: () => void }) {
-  const week = useStore((s) => s.weeks.find((w) => w.id === s.activeWeekId))
+  const weeks = useStore((s) => s.weeks)
+  const activeWeekId = useStore((s) => s.activeWeekId)
   const recipes = useStore((s) => s.recipes)
-  const pitches = useStore((s) =>
-    s.pitches.filter((p) => p.weekId === s.activeWeekId),
-  )
+  const allPitches = useStore((s) => s.pitches)
   const assignSlot = useStore((s) => s.assignSlot)
   const clearSlot = useStore((s) => s.clearSlot)
   const lockWeek = useStore((s) => s.lockWeek)
   const reopenWeek = useStore((s) => s.reopenWeek)
   const [pickingDay, setPickingDay] = useState<Weekday | null>(null)
+
+  const week = useMemo(
+    () => weeks.find((w) => w.id === activeWeekId),
+    [weeks, activeWeekId],
+  )
+  const pitches = useMemo(
+    () => allPitches.filter((p) => p.weekId === activeWeekId),
+    [allPitches, activeWeekId],
+  )
 
   if (!week) return null
 
@@ -274,14 +287,17 @@ function WeekView({ onPitch }: { onPitch: () => void }) {
 function PitchView() {
   const currentUser = useStore((s) => s.currentUser)!
   const recipes = useStore((s) => s.recipes)
-  const pitches = useStore((s) =>
-    s.pitches.filter((p) => p.weekId === s.activeWeekId),
-  )
+  const allPitches = useStore((s) => s.pitches)
+  const activeWeekId = useStore((s) => s.activeWeekId)
   const addPitch = useStore((s) => s.addPitch)
   const reactToPitch = useStore((s) => s.reactToPitch)
   const [title, setTitle] = useState('')
   const [note, setNote] = useState('')
   const [recipeId, setRecipeId] = useState('')
+  const pitches = useMemo(
+    () => allPitches.filter((p) => p.weekId === activeWeekId),
+    [allPitches, activeWeekId],
+  )
 
   return (
     <div className="stack">
