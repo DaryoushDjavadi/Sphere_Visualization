@@ -6,7 +6,7 @@ import {
   linkCookidooAccount,
   pushItemsToBring,
 } from './api/integrations'
-import { DEFAULT_SETTINGS, SEED_RECIPES, SEED_WEEK } from './data/seed'
+import { DEFAULT_SETTINGS, SEED_RECIPES, SEED_WEEK, mealLabel } from './data/seed'
 import type {
   AppSettings,
   Ingredient,
@@ -40,11 +40,19 @@ interface Store {
     title: string
     note: string
     recipeId?: string
+    sideRecipeId?: string
+    sideTitle?: string
   }) => void
   reactToPitch: (pitchId: string, reaction: 'yes' | 'maybe' | 'no') => void
   assignSlot: (
     day: Weekday,
-    payload: { recipeId?: string; title?: string; fromPitchId?: string },
+    payload: {
+      recipeId?: string
+      title?: string
+      sideRecipeId?: string
+      sideTitle?: string
+      fromPitchId?: string
+    },
   ) => void
   clearSlot: (day: Weekday) => void
   lockWeek: () => void
@@ -129,6 +137,7 @@ export const useStore = create<Store>()(
         if (!user) return
         const next: Recipe = {
           ...recipe,
+          kind: recipe.kind ?? 'meal',
           id: uid('r'),
           createdBy: user,
           createdAt: new Date().toISOString(),
@@ -142,6 +151,7 @@ export const useStore = create<Store>()(
         const id = uid('r')
         const next: Recipe = {
           ...recipe,
+          kind: recipe.kind ?? 'meal',
           id,
           createdBy: user,
           createdAt: new Date().toISOString(),
@@ -156,6 +166,7 @@ export const useStore = create<Store>()(
         const next: Recipe = {
           id: uid('r'),
           title: title.trim() || 'Cookidoo Rezept',
+          kind: 'meal',
           tags: ['cookidoo'],
           ingredients: parseIngredientLines(ingredientsText),
           notes,
@@ -175,15 +186,26 @@ export const useStore = create<Store>()(
         })
       },
 
-      addPitch: ({ title, note, recipeId }) => {
+      addPitch: ({ title, note, recipeId, sideRecipeId, sideTitle }) => {
         const user = get().currentUser
         const weekId = get().activeWeekId
         if (!user || !weekId) return
+        const recipes = get().recipes
+        const main = recipeId
+          ? recipes.find((r) => r.id === recipeId)?.title
+          : title
+        const side =
+          sideTitle ||
+          (sideRecipeId
+            ? recipes.find((r) => r.id === sideRecipeId)?.title
+            : undefined)
         const pitch: Pitch = {
           id: uid('p'),
           weekId,
           recipeId,
-          title: title.trim(),
+          sideRecipeId,
+          sideTitle: side,
+          title: mealLabel(main || title, side),
           note: note.trim(),
           pitchedBy: user,
           reactions: { [user]: 'yes' },
@@ -216,6 +238,8 @@ export const useStore = create<Store>()(
                       day,
                       recipeId: payload.recipeId,
                       title: payload.title,
+                      sideRecipeId: payload.sideRecipeId,
+                      sideTitle: payload.sideTitle,
                       fromPitchId: payload.fromPitchId,
                     }
                   : s,
@@ -259,9 +283,14 @@ export const useStore = create<Store>()(
         if (!week) return []
         const items: Ingredient[] = []
         for (const slot of week.slots) {
-          if (!slot.recipeId) continue
-          const recipe = recipes.find((r) => r.id === slot.recipeId)
-          if (recipe) items.push(...recipe.ingredients)
+          if (slot.recipeId) {
+            const recipe = recipes.find((r) => r.id === slot.recipeId)
+            if (recipe) items.push(...recipe.ingredients)
+          }
+          if (slot.sideRecipeId) {
+            const side = recipes.find((r) => r.id === slot.sideRecipeId)
+            if (side) items.push(...side.ingredients)
+          }
         }
         const merged = mergeIngredients(items)
         set({ shoppingDraft: merged })
@@ -460,6 +489,7 @@ export const useStore = create<Store>()(
           }
           addImportedRecipe({
             title: res.recipe.title,
+            kind: 'meal',
             tags: res.recipe.tags || ['cookidoo'],
             ingredients: (res.recipe.ingredients || []).map((i) => ({
               name: i.name,
@@ -493,13 +523,16 @@ export const useStore = create<Store>()(
         }),
     }),
     {
-      name: 'wochenkochen-demo-v2',
+      name: 'wochenkochen-demo-v3',
       partialize: (state) => {
         // Persist tokens for convenience on a private household demo;
         // never persist plaintext passwords (they are only form state).
         return {
           currentUser: state.currentUser,
-          recipes: state.recipes,
+          recipes: state.recipes.map((r) => ({
+            ...r,
+            kind: r.kind ?? 'meal',
+          })),
           pitches: state.pitches,
           weeks: state.weeks,
           activeWeekId: state.activeWeekId,

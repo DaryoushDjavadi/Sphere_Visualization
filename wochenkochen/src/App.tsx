@@ -9,6 +9,7 @@ import {
   ShoppingCart,
 } from 'lucide-react'
 import { USERS } from './data/seed'
+import { mealLabel } from './data/seed'
 import { useStore } from './store'
 import type { UserId, Weekday } from './types'
 
@@ -218,6 +219,10 @@ function WeekView({ onPitch }: { onPitch: () => void }) {
   const lockWeek = useStore((s) => s.lockWeek)
   const reopenWeek = useStore((s) => s.reopenWeek)
   const [pickingDay, setPickingDay] = useState<Weekday | null>(null)
+  const [pendingBase, setPendingBase] = useState<{
+    recipeId: string
+    title: string
+  } | null>(null)
 
   const week = useMemo(
     () => weeks.find((w) => w.id === activeWeekId),
@@ -226,6 +231,14 @@ function WeekView({ onPitch }: { onPitch: () => void }) {
   const pitches = useMemo(
     () => allPitches.filter((p) => p.weekId === activeWeekId),
     [allPitches, activeWeekId],
+  )
+  const sideRecipes = useMemo(
+    () => recipes.filter((r) => (r.kind ?? 'meal') === 'side'),
+    [recipes],
+  )
+  const mainRecipes = useMemo(
+    () => recipes.filter((r) => (r.kind ?? 'meal') !== 'side'),
+    [recipes],
   )
 
   if (!week) return null
@@ -240,13 +253,21 @@ function WeekView({ onPitch }: { onPitch: () => void }) {
     so: 'Sonntag',
   }
 
+  const closePicker = () => {
+    setPickingDay(null)
+    setPendingBase(null)
+  }
+
   return (
     <div className="stack">
       <div className="panel">
         <div className="section-head">
           <div>
             <h2>Wochenplan</h2>
-            <p className="lede">Gerichte aus Pitches oder Rezepten zuordnen.</p>
+            <p className="lede">
+              Gerichte zuordnen — Basis wie Reis kann eine eigene Beilage
+              bekommen.
+            </p>
           </div>
           <span
             className={`status-pill ${week.status === 'locked' ? '' : 'warn'}`}
@@ -275,15 +296,19 @@ function WeekView({ onPitch }: { onPitch: () => void }) {
       <div className="day-grid">
         {week.slots.map((slot) => {
           const recipe = recipes.find((r) => r.id === slot.recipeId)
-          const title = slot.title || recipe?.title
+          const side =
+            slot.sideTitle ||
+            recipes.find((r) => r.id === slot.sideRecipeId)?.title
+          const title = mealLabel(slot.title || recipe?.title, side)
+          const hasMeal = Boolean(slot.title || recipe || side)
           return (
             <div
               key={slot.day}
-              className={`day-card ${title ? '' : 'empty'}`}
+              className={`day-card ${hasMeal ? '' : 'empty'}`}
             >
               <div className="row">
                 <strong className="grow">{weekdayLabels[slot.day]}</strong>
-                {title ? (
+                {hasMeal ? (
                   <button
                     type="button"
                     className="btn ghost sm"
@@ -293,24 +318,35 @@ function WeekView({ onPitch }: { onPitch: () => void }) {
                   </button>
                 ) : null}
               </div>
-              {title ? (
+              {hasMeal ? (
                 <>
                   <h3>{title}</h3>
-                  {recipe?.tags?.length ? (
-                    <div className="tags">
-                      {recipe.tags.map((t) => (
-                        <span key={t} className="tag">
-                          {t}
-                        </span>
-                      ))}
-                    </div>
+                  {side ? (
+                    <p className="muted tiny">
+                      Basis + Beilage — Zutaten von beiden landen in der
+                      Einkaufsliste.
+                    </p>
                   ) : null}
+                  <div className="tags">
+                    {recipe?.kind === 'base' ? (
+                      <span className="tag green">Basis</span>
+                    ) : null}
+                    {side ? <span className="tag">Beilage</span> : null}
+                    {recipe?.tags?.map((t) => (
+                      <span key={t} className="tag">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
                 </>
               ) : (
                 <button
                   type="button"
                   className="btn secondary sm"
-                  onClick={() => setPickingDay(slot.day)}
+                  onClick={() => {
+                    setPendingBase(null)
+                    setPickingDay(slot.day)
+                  }}
                 >
                   Gericht wählen
                 </button>
@@ -321,58 +357,111 @@ function WeekView({ onPitch }: { onPitch: () => void }) {
       </div>
 
       {pickingDay ? (
-        <div className="modal-backdrop" onClick={() => setPickingDay(null)}>
+        <div className="modal-backdrop" onClick={closePicker}>
           <div className="modal stack" onClick={(e) => e.stopPropagation()}>
             <div className="section-head">
-              <h2>{weekdayLabels[pickingDay]}</h2>
+              <h2>
+                {pendingBase
+                  ? `Beilage zu ${pendingBase.title}`
+                  : weekdayLabels[pickingDay]}
+              </h2>
               <button
                 type="button"
                 className="btn ghost sm"
-                onClick={() => setPickingDay(null)}
+                onClick={closePicker}
               >
                 Schließen
               </button>
             </div>
-            <p className="muted tiny">Aus Pitches</p>
-            {pitches.length === 0 ? (
-              <p className="muted">Noch keine Pitches — erst vorschlagen.</p>
-            ) : (
-              pitches.map((p) => (
+
+            {pendingBase ? (
+              <>
+                <p className="muted tiny">
+                  Beilage wählen oder ohne Beilage übernehmen.
+                </p>
+                {sideRecipes.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    className="btn secondary"
+                    onClick={() => {
+                      assignSlot(pickingDay, {
+                        recipeId: pendingBase.recipeId,
+                        title: mealLabel(pendingBase.title, r.title),
+                        sideRecipeId: r.id,
+                        sideTitle: r.title,
+                      })
+                      closePicker()
+                    }}
+                  >
+                    {r.title}
+                  </button>
+                ))}
                 <button
-                  key={p.id}
                   type="button"
-                  className="btn secondary"
+                  className="btn"
                   onClick={() => {
                     assignSlot(pickingDay, {
-                      recipeId: p.recipeId,
-                      title: p.title,
-                      fromPitchId: p.id,
+                      recipeId: pendingBase.recipeId,
+                      title: pendingBase.title,
                     })
-                    setPickingDay(null)
+                    closePicker()
                   }}
                 >
-                  {p.title}
+                  Nur {pendingBase.title} (ohne Beilage)
                 </button>
-              ))
+              </>
+            ) : (
+              <>
+                <p className="muted tiny">Aus Pitches</p>
+                {pitches.length === 0 ? (
+                  <p className="muted">Noch keine Pitches — erst vorschlagen.</p>
+                ) : (
+                  pitches.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className="btn secondary"
+                      onClick={() => {
+                        assignSlot(pickingDay, {
+                          recipeId: p.recipeId,
+                          title: p.title,
+                          sideRecipeId: p.sideRecipeId,
+                          sideTitle: p.sideTitle,
+                          fromPitchId: p.id,
+                        })
+                        closePicker()
+                      }}
+                    >
+                      {p.title}
+                    </button>
+                  ))
+                )}
+                <div className="divider" />
+                <p className="muted tiny">Basis / Gerichte</p>
+                {mainRecipes.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    className="btn secondary"
+                    onClick={() => {
+                      if ((r.kind ?? 'meal') === 'base') {
+                        setPendingBase({ recipeId: r.id, title: r.title })
+                      } else {
+                        assignSlot(pickingDay, {
+                          recipeId: r.id,
+                          title: r.title,
+                        })
+                        closePicker()
+                      }
+                    }}
+                  >
+                    {r.title}
+                    {(r.kind ?? 'meal') === 'base' ? ' · Basis' : ''}
+                  </button>
+                ))}
+              </>
             )}
-            <div className="divider" />
-            <p className="muted tiny">Aus Rezepten</p>
-            {recipes.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                className="btn secondary"
-                onClick={() => {
-                  assignSlot(pickingDay, {
-                    recipeId: r.id,
-                    title: r.title,
-                  })
-                  setPickingDay(null)
-                }}
-              >
-                {r.title}
-              </button>
-            ))}
           </div>
         </div>
       ) : null}
@@ -390,10 +479,18 @@ function PitchView() {
   const [title, setTitle] = useState('')
   const [note, setNote] = useState('')
   const [recipeId, setRecipeId] = useState('')
+  const [sideRecipeId, setSideRecipeId] = useState('')
+  const [sideFree, setSideFree] = useState('')
+  const [attachSide, setAttachSide] = useState(false)
   const pitches = useMemo(
     () => allPitches.filter((p) => p.weekId === activeWeekId),
     [allPitches, activeWeekId],
   )
+  const selected = recipes.find((r) => r.id === recipeId)
+  const showSideFields =
+    attachSide || (selected?.kind ?? 'meal') === 'base' || Boolean(sideRecipeId || sideFree)
+  const sideRecipes = recipes.filter((r) => (r.kind ?? 'meal') === 'side')
+  const mainRecipes = recipes.filter((r) => (r.kind ?? 'meal') !== 'side')
 
   return (
     <div className="stack">
@@ -401,37 +498,88 @@ function PitchView() {
         <div>
           <h2>Pitch-Modus</h2>
           <p className="lede">
-            Vorschläge für nächste Woche — mit Notiz, Reaktion, fertig.
+            Vorschläge pitchen und abstimmen — z.&nbsp;B. Reis + unterschiedliche
+            Beilagen als eigene Pitches.
           </p>
         </div>
         <div className="field">
-          <label htmlFor="pitch-title">Gericht / Idee</label>
-          <input
-            id="pitch-title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="z. B. Ramen-Abend"
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="pitch-recipe">Rezept verknüpfen (optional)</label>
+          <label htmlFor="pitch-recipe">Rezept / Basis</label>
           <select
             id="pitch-recipe"
             value={recipeId}
             onChange={(e) => {
               setRecipeId(e.target.value)
               const r = recipes.find((x) => x.id === e.target.value)
-              if (r && !title) setTitle(r.title)
+              if (r) setTitle(r.title)
+              setSideRecipeId('')
+              setSideFree('')
+              setAttachSide((r?.kind ?? 'meal') === 'base')
             }}
           >
             <option value="">— freier Pitch —</option>
-            {recipes.map((r) => (
+            {mainRecipes.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.title}
+                {(r.kind ?? 'meal') === 'base' ? ' (Basis)' : ''}
               </option>
             ))}
           </select>
         </div>
+        <div className="field">
+          <label htmlFor="pitch-title">Titel</label>
+          <input
+            id="pitch-title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="z. B. Reis oder Ramen-Abend"
+          />
+        </div>
+        {showSideFields ? (
+          <>
+            <div className="field">
+              <label htmlFor="pitch-side">Beilage (abstimmen)</label>
+              <select
+                id="pitch-side"
+                value={sideRecipeId}
+                onChange={(e) => {
+                  setSideRecipeId(e.target.value)
+                  if (e.target.value) setSideFree('')
+                }}
+              >
+                <option value="">— Beilage wählen —</option>
+                {sideRecipes.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="pitch-side-free">Oder freie Beilage</label>
+              <input
+                id="pitch-side-free"
+                value={sideFree}
+                onChange={(e) => {
+                  setSideFree(e.target.value)
+                  if (e.target.value) setSideRecipeId('')
+                }}
+                placeholder="z. B. Joghurt & Gurkensalat"
+              />
+            </div>
+            <p className="muted tiny">
+              Tipp: Mehrere Pitches mit derselben Basis (Reis) und anderen
+              Beilagen — dann separat mit Yes/Maybe/Nope abstimmen.
+            </p>
+          </>
+        ) : (
+          <button
+            type="button"
+            className="btn ghost sm"
+            onClick={() => setAttachSide(true)}
+          >
+            + Beilage anhängen
+          </button>
+        )}
         <div className="field">
           <label htmlFor="pitch-note">Notiz</label>
           <textarea
@@ -446,14 +594,22 @@ function PitchView() {
           className="btn accent"
           disabled={!title.trim()}
           onClick={() => {
+            const sideTitle =
+              sideFree.trim() ||
+              sideRecipes.find((r) => r.id === sideRecipeId)?.title
             addPitch({
               title,
               note,
               recipeId: recipeId || undefined,
+              sideRecipeId: sideRecipeId || undefined,
+              sideTitle,
             })
             setTitle('')
             setNote('')
             setRecipeId('')
+            setSideRecipeId('')
+            setSideFree('')
+            setAttachSide(false)
           }}
         >
           Pitch absenden
@@ -468,6 +624,7 @@ function PitchView() {
               <h3>{p.title}</h3>
               <p className="muted tiny">
                 von {USERS[p.pitchedBy].name}
+                {p.sideTitle || p.sideRecipeId ? ' · Basis + Beilage' : ''}
                 {p.recipeId ? ' · Rezept verknüpft' : ''}
               </p>
             </div>
@@ -517,6 +674,7 @@ function RecipesView() {
   const [open, setOpen] = useState(false)
   const [cookidooOpen, setCookidooOpen] = useState(false)
   const [title, setTitle] = useState('')
+  const [kind, setKind] = useState<'meal' | 'base' | 'side'>('meal')
   const [tags, setTags] = useState('')
   const [ingredients, setIngredients] = useState('')
   const [notes, setNotes] = useState('')
@@ -533,7 +691,9 @@ function RecipesView() {
         <div className="section-head">
           <div>
             <h2>Rezepte</h2>
-            <p className="lede">Bibliothek für eure Woche.</p>
+            <p className="lede">
+              Bibliothek — volle Gerichte, Basis (z.&nbsp;B. Reis) und Beilagen.
+            </p>
           </div>
         </div>
         <div className="row wrap">
@@ -564,6 +724,12 @@ function RecipesView() {
             <Avatar userId={r.createdBy} />
           </div>
           <div className="tags">
+            {(r.kind ?? 'meal') === 'base' ? (
+              <span className="tag green">Basis</span>
+            ) : null}
+            {(r.kind ?? 'meal') === 'side' ? (
+              <span className="tag">Beilage</span>
+            ) : null}
             {r.tags.map((t) => (
               <span key={t} className="tag">
                 {t}
@@ -587,6 +753,20 @@ function RecipesView() {
             <div className="field">
               <label htmlFor="r-title">Titel</label>
               <input id="r-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+            </div>
+            <div className="field">
+              <label htmlFor="r-kind">Typ</label>
+              <select
+                id="r-kind"
+                value={kind}
+                onChange={(e) =>
+                  setKind(e.target.value as 'meal' | 'base' | 'side')
+                }
+              >
+                <option value="meal">Volles Gericht</option>
+                <option value="base">Basis (z. B. Reis)</option>
+                <option value="side">Beilage</option>
+              </select>
             </div>
             <div className="field">
               <label htmlFor="r-tags">Tags (Komma)</label>
@@ -617,6 +797,7 @@ function RecipesView() {
               onClick={() => {
                 addRecipe({
                   title: title.trim(),
+                  kind,
                   tags: tags
                     .split(',')
                     .map((t) => t.trim())
@@ -635,6 +816,7 @@ function RecipesView() {
                   notes: notes.trim() || undefined,
                 })
                 setTitle('')
+                setKind('meal')
                 setTags('')
                 setIngredients('')
                 setNotes('')
@@ -1149,14 +1331,16 @@ function HelpView({ onOpenSettings }: { onOpenSettings: () => void }) {
         <ol className="help-list">
           <li>
             <strong>Pitch</strong> — Vorschläge mit Notiz und Reaktion (Yes /
-            Maybe / Nope).
+            Maybe / Nope). Basis + Beilage (z.&nbsp;B. Reis + Salat) als eigene
+            Pitches abstimmen.
           </li>
           <li>
-            <strong>Plan</strong> — Gerichte den Wochentagen zuordnen und
-            festnageln.
+            <strong>Plan</strong> — Gerichte den Wochentagen zuordnen; bei einer
+            Basis danach die Beilage wählen.
           </li>
           <li>
-            <strong>Rezepte</strong> — Bibliothek pflegen oder neu anlegen.
+            <strong>Rezepte</strong> — Bibliothek als Gericht, Basis oder
+            Beilage pflegen.
           </li>
         </ol>
       </div>

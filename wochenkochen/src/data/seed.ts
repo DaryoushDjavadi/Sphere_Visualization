@@ -27,8 +27,64 @@ export const WEEKDAYS = [
 
 export const SEED_RECIPES: Recipe[] = [
   {
+    id: 'r-rice',
+    title: 'Reis',
+    kind: 'base',
+    tags: ['basis', 'oft'],
+    ingredients: [
+      { name: 'Reis', amount: '300g' },
+      { name: 'Salz', amount: '1 Prise' },
+    ],
+    notes: 'Klassiker-Basis — Beilage jedes Mal neu pitchen.',
+    createdBy: 'darius',
+    createdAt: '2026-08-01T09:00:00.000Z',
+  },
+  {
+    id: 'r-side-potato',
+    title: 'Bratkartoffeln',
+    kind: 'side',
+    tags: ['beilage', 'ofen'],
+    ingredients: [
+      { name: 'Kartoffeln', amount: '800g' },
+      { name: 'Zwiebel', amount: '1' },
+      { name: 'Öl', amount: '2 EL' },
+    ],
+    createdBy: 'wendy',
+    createdAt: '2026-08-01T09:05:00.000Z',
+  },
+  {
+    id: 'r-side-salad',
+    title: 'Tomaten-Gurken-Salat mit Joghurt',
+    kind: 'side',
+    tags: ['beilage', 'frisch'],
+    ingredients: [
+      { name: 'Gurke', amount: '1' },
+      { name: 'Tomaten', amount: '3' },
+      { name: 'Joghurt', amount: '200g' },
+      { name: 'Knoblauch', amount: '1 Zehe' },
+      { name: 'Salz', amount: '1 Prise' },
+    ],
+    createdBy: 'wendy',
+    createdAt: '2026-08-01T09:10:00.000Z',
+  },
+  {
+    id: 'r-side-dal',
+    title: 'Linsen-Dal',
+    kind: 'side',
+    tags: ['beilage', 'vegan'],
+    ingredients: [
+      { name: 'Rote Linsen', amount: '200g' },
+      { name: 'Kokosmilch', amount: '200ml' },
+      { name: 'Currypulver', amount: '1 TL' },
+      { name: 'Zwiebel', amount: '1' },
+    ],
+    createdBy: 'darius',
+    createdAt: '2026-08-01T09:15:00.000Z',
+  },
+  {
     id: 'r-pasta',
     title: 'One-Pot Pasta Arrabbiata',
+    kind: 'meal',
     tags: ['schnell', 'vegetarisch'],
     ingredients: [
       { name: 'Penne', amount: '400g' },
@@ -45,6 +101,7 @@ export const SEED_RECIPES: Recipe[] = [
   {
     id: 'r-bowl',
     title: 'Halloumi Bowl',
+    kind: 'meal',
     tags: ['bowl', 'vegetarisch'],
     ingredients: [
       { name: 'Halloumi', amount: '200g' },
@@ -60,6 +117,7 @@ export const SEED_RECIPES: Recipe[] = [
   {
     id: 'r-curry',
     title: 'Kokos-Kichererbsen-Curry',
+    kind: 'meal',
     tags: ['thermomixtauchlich', 'vegan'],
     ingredients: [
       { name: 'Kichererbsen', amount: '1 Dose' },
@@ -77,6 +135,7 @@ export const SEED_RECIPES: Recipe[] = [
   {
     id: 'r-sheet',
     title: 'Ofengemüse mit Feta',
+    kind: 'meal',
     tags: ['ofen', 'wenig Abwasch'],
     ingredients: [
       { name: 'Zucchini', amount: '2' },
@@ -90,6 +149,16 @@ export const SEED_RECIPES: Recipe[] = [
     createdAt: '2026-08-04T10:00:00.000Z',
   },
 ]
+
+export function mealLabel(
+  main?: string | null,
+  side?: string | null,
+): string {
+  const a = (main || '').trim()
+  const b = (side || '').trim()
+  if (a && b) return `${a} + ${b}`
+  return a || b || 'Gericht'
+}
 
 function nextMondayLabel(): { id: string; label: string } {
   const now = new Date()

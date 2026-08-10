@@ -15,6 +15,8 @@ export interface Ingredient {
 export interface Recipe {
   id: string
   title: string
+  /** meal = full dish, base = e.g. rice, side = beilage */
+  kind: 'meal' | 'base' | 'side'
   tags: string[]
   ingredients: Ingredient[]
   notes?: string
@@ -28,6 +30,9 @@ export interface Pitch {
   id: string
   weekId: string
   recipeId?: string
+  /** Optional side dish paired with a base (or any main) */
+  sideRecipeId?: string
+  sideTitle?: string
   title: string
   note: string
   pitchedBy: UserId
@@ -41,6 +46,8 @@ export interface WeekSlot {
   day: Weekday
   recipeId?: string
   title?: string
+  sideRecipeId?: string
+  sideTitle?: string
   fromPitchId?: string
 }
 
