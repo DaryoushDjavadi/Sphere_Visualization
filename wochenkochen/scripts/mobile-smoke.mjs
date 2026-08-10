@@ -46,7 +46,8 @@ async function main() {
   // --- Scenario 2: Wendy ---
   await page.locator('.user-chip').click()
   await page.locator('.user-pick button').nth(1).click()
-  await page.locator('.bottom-nav button', { hasText: 'Mehr' }).click()
+  await page.getByRole('button', { name: 'Menü' }).click()
+  await page.getByRole('menuitem', { name: /Einstellungen/i }).click()
   await page.getByRole('button', { name: 'Bring umschalten' }).click()
   await page.locator('#bring-email').fill('wendy@example.com')
   await page.locator('#bring-password').fill('demo-password')

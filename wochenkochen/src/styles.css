@@ -82,10 +82,84 @@ a {
   margin-bottom: 18px;
 }
 
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.file-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.file-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--ink);
+}
+
+.file-menu-btn.open {
+  border-color: rgba(47, 111, 78, 0.35);
+  background: rgba(47, 111, 78, 0.1);
+}
+
+.file-menu-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 200px;
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--panel-solid);
+  box-shadow: var(--shadow);
+  z-index: 60;
+  display: grid;
+  gap: 2px;
+  animation: rise 0.18s ease both;
+}
+
+.file-menu-panel button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.file-menu-panel button:hover,
+.file-menu-panel button:focus-visible {
+  background: rgba(47, 111, 78, 0.1);
+  outline: none;
+}
+
+.file-menu-sep {
+  height: 1px;
+  background: var(--line);
+  margin: 4px 6px;
+}
+
 .brand-mark {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .brand-mark strong {
@@ -413,9 +487,20 @@ p {
   border-top: 1px solid var(--line);
   backdrop-filter: blur(16px);
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
   gap: 4px;
   z-index: 40;
+}
+
+.bottom-nav.cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.bottom-nav.cols-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.bottom-nav.cols-5 {
+  grid-template-columns: repeat(5, 1fr);
 }
 
 .bottom-nav button {
@@ -597,6 +682,23 @@ p {
   animation: rise 0.25s ease both;
   max-height: min(86dvh, 720px);
   overflow: auto;
+}
+
+.help-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 10px;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+.help-list.bullets {
+  padding-left: 1.1rem;
+}
+
+.help-list li::marker {
+  color: var(--good);
 }
 
 .divider {

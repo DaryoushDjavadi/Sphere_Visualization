@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CalendarDays,
   ChefHat,
+  CircleHelp,
+  Menu,
   MessageSquarePlus,
   Settings,
   ShoppingCart,
@@ -10,7 +12,7 @@ import { USERS } from './data/seed'
 import { useStore } from './store'
 import type { UserId, Weekday } from './types'
 
-type Tab = 'week' | 'pitch' | 'recipes' | 'shop' | 'settings'
+type Tab = 'week' | 'pitch' | 'recipes' | 'shop' | 'settings' | 'help'
 
 function Avatar({ userId, size = 28 }: { userId: UserId; size?: number }) {
   const user = USERS[userId]
@@ -64,7 +66,13 @@ function LoginScreen() {
   )
 }
 
-function TopBar() {
+function TopBar({
+  tab,
+  onOpenMenuPage,
+}: {
+  tab: Tab
+  onOpenMenuPage: (page: 'settings' | 'help') => void
+}) {
   const currentUser = useStore((s) => s.currentUser)!
   const logout = useStore((s) => s.logout)
   const weeks = useStore((s) => s.weeks)
@@ -73,13 +81,96 @@ function TopBar() {
     () => weeks.find((w) => w.id === activeWeekId),
     [weeks, activeWeekId],
   )
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const onDoc = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [menuOpen])
+
+  const pageTitle =
+    tab === 'settings'
+      ? 'Einstellungen'
+      : tab === 'help'
+        ? 'Hilfe'
+        : 'Wochenkochen'
+
   return (
     <header className="topbar">
-      <div className="brand-mark">
-        <strong>Wochenkochen</strong>
-        <span>{week?.label ?? 'Nächste Woche'}</span>
+      <div className="topbar-left">
+        <div className="file-menu" ref={menuRef}>
+          <button
+            type="button"
+            className={`file-menu-btn ${menuOpen ? 'open' : ''}`}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            aria-label="Menü"
+            onClick={() => setMenuOpen((v) => !v)}
+          >
+            <Menu size={18} />
+            <span>Menü</span>
+          </button>
+          {menuOpen ? (
+            <div className="file-menu-panel" role="menu">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false)
+                  onOpenMenuPage('settings')
+                }}
+              >
+                <Settings size={16} />
+                Einstellungen…
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false)
+                  onOpenMenuPage('help')
+                }}
+              >
+                <CircleHelp size={16} />
+                Hilfe
+              </button>
+              <div className="file-menu-sep" />
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false)
+                  logout()
+                }}
+              >
+                Abmelden
+              </button>
+            </div>
+          ) : null}
+        </div>
+        <div className="brand-mark">
+          <strong>{pageTitle}</strong>
+          <span>{week?.label ?? 'Nächste Woche'}</span>
+        </div>
       </div>
-      <button type="button" className="user-chip" onClick={logout} title="Abmelden">
+      <button
+        type="button"
+        className="user-chip"
+        onClick={logout}
+        title="Abmelden"
+      >
         <Avatar userId={currentUser} />
         <span>{USERS[currentUser].name}</span>
       </button>
@@ -88,15 +179,20 @@ function TopBar() {
 }
 
 function BottomNav({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
+  const bringEnabled = useStore((s) => s.settings.bring.enabled)
   const items: { id: Tab; label: string; icon: typeof CalendarDays }[] = [
     { id: 'week', label: 'Plan', icon: CalendarDays },
     { id: 'pitch', label: 'Pitch', icon: MessageSquarePlus },
     { id: 'recipes', label: 'Rezepte', icon: ChefHat },
-    { id: 'shop', label: 'Bring', icon: ShoppingCart },
-    { id: 'settings', label: 'Mehr', icon: Settings },
   ]
+  if (bringEnabled) {
+    items.push({ id: 'shop', label: 'Bring', icon: ShoppingCart })
+  }
   return (
-    <nav className="bottom-nav" aria-label="Hauptnavigation">
+    <nav
+      className={`bottom-nav cols-${items.length}`}
+      aria-label="Hauptnavigation"
+    >
       {items.map(({ id, label, icon: Icon }) => (
         <button
           key={id}
@@ -593,8 +689,8 @@ function RecipesView() {
               </>
             ) : (
               <p className="lede">
-                Konto unter Mehr verknüpfen für Auto-Import — oder Titel, Link und
-                Zutaten manuell einfügen.
+                Konto unter Menü → Einstellungen verknüpfen für Auto-Import — oder
+                Titel, Link und Zutaten manuell einfügen.
               </p>
             )}
             <div className="field">
@@ -717,8 +813,8 @@ function ShopView() {
           </p>
         ) : (
           <p className="muted tiny">
-            Unter Mehr → Bring mit E-Mail &amp; Passwort verknüpfen, dann hier
-            pushen.
+            Unter Menü → Einstellungen Bring mit E-Mail &amp; Passwort
+            verknüpfen, dann hier pushen.
           </p>
         )}
         {settings.bring.lastError ? (
@@ -790,8 +886,8 @@ function SettingsView() {
       <div className="panel">
         <h2>Integrationen</h2>
         <p className="lede">
-          Optional: echte Logins für Bring! und Cookidoo (über PHP-Proxy auf dem
-          Webspace).
+          Bring und Cookidoo sind optional. Einschalten → Login-Daten eingeben →
+          verknüpfen.
         </p>
 
         {status ? (
@@ -1030,7 +1126,7 @@ function SettingsView() {
       </div>
 
       <div className="panel stack">
-        <h2>Demo</h2>
+        <h2>App</h2>
         <button type="button" className="btn secondary" onClick={resetDemoData}>
           Demo-Daten zurücksetzen
         </button>
@@ -1042,20 +1138,84 @@ function SettingsView() {
   )
 }
 
+function HelpView({ onOpenSettings }: { onOpenSettings: () => void }) {
+  return (
+    <div className="stack">
+      <div className="panel stack">
+        <h2>So funktioniert’s</h2>
+        <p className="lede">
+          Wochenenden: Gerichte pitchen, Plan festnageln, optional einkaufen.
+        </p>
+        <ol className="help-list">
+          <li>
+            <strong>Pitch</strong> — Vorschläge mit Notiz und Reaktion (Yes /
+            Maybe / Nope).
+          </li>
+          <li>
+            <strong>Plan</strong> — Gerichte den Wochentagen zuordnen und
+            festnageln.
+          </li>
+          <li>
+            <strong>Rezepte</strong> — Bibliothek pflegen oder neu anlegen.
+          </li>
+        </ol>
+      </div>
+
+      <div className="panel stack">
+        <h2>Optionale Integrationen</h2>
+        <p className="lede">
+          Bring! und Cookidoo sind standardmäßig aus. Unter Einstellungen
+          einschalten und mit Login verknüpfen.
+        </p>
+        <ul className="help-list bullets">
+          <li>
+            <strong>Bring!</strong> — Wochenplan-Zutaten an die gemeinsame
+            Einkaufsliste senden.
+          </li>
+          <li>
+            <strong>Cookidoo</strong> — Rezepte per Link/ID aus eurem Konto in
+            den Planner laden.
+          </li>
+        </ul>
+        <button type="button" className="btn secondary" onClick={onOpenSettings}>
+          Zu den Einstellungen
+        </button>
+      </div>
+
+      <div className="panel stack">
+        <h2>Menü</h2>
+        <p className="muted">
+          Oben links: <strong>Menü</strong> → Einstellungen oder Hilfe. Unten:
+          Plan, Pitch, Rezepte — und Bring nur, wenn in den Einstellungen
+          aktiviert.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const currentUser = useStore((s) => s.currentUser)
+  const bringEnabled = useStore((s) => s.settings.bring.enabled)
   const [tab, setTab] = useState<Tab>('week')
+
+  useEffect(() => {
+    if (!bringEnabled && tab === 'shop') setTab('week')
+  }, [bringEnabled, tab])
 
   if (!currentUser) return <LoginScreen />
 
   return (
     <div className="app-shell">
-      <TopBar />
+      <TopBar tab={tab} onOpenMenuPage={setTab} />
       {tab === 'week' ? <WeekView onPitch={() => setTab('pitch')} /> : null}
       {tab === 'pitch' ? <PitchView /> : null}
       {tab === 'recipes' ? <RecipesView /> : null}
       {tab === 'shop' ? <ShopView /> : null}
       {tab === 'settings' ? <SettingsView /> : null}
+      {tab === 'help' ? (
+        <HelpView onOpenSettings={() => setTab('settings')} />
+      ) : null}
       <BottomNav tab={tab} setTab={setTab} />
     </div>
   )
