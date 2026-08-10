@@ -64,7 +64,7 @@ a {
   width: min(520px, 100%);
   margin: 0 auto;
   min-height: 100dvh;
-  padding: 16px 16px calc(var(--nav-h) + var(--safe-b) + 18px);
+  padding: 16px 16px calc(var(--nav-h) + var(--safe-b) + 36px);
   position: relative;
 }
 
