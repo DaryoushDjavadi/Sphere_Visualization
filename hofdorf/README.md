@@ -10,9 +10,9 @@ npm install
 npm start
 ```
 
-Dann im Browser: [http://localhost:3847](http://localhost:3847)
+Browser: [http://localhost:3847](http://localhost:3847)
 
-Handy: gleiche Adresse im WLAN / über den Cloud-Agent-Preview. Touch-Stick links, Aktion rechts.
+Handy im gleichen Netz: `http://<deine-ip>:3847` — Touch-Stick links, Aktion rechts. Mehrere Handys/Tabs = mehrere Spieler auf demselben Server.
 
 ## Steuerung
 
@@ -36,3 +36,5 @@ Handy: gleiche Adresse im WLAN / über den Cloud-Agent-Preview. Touch-Stick link
 
 - Node.js + Express + WebSocket (autoritativer Server)
 - Canvas-2D-Client, mobiltauglich, ohne Build-Step
+
+Eigenes Repo später: Ordner `hofdorf/` ist bereits eigenständig (`npm start` reicht).

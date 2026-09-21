@@ -30,16 +30,16 @@ let toastTimer = null;
 let stickTouchId = null;
 
 const ICONS = {
-  hoe: '🪓',
-  can: '💧',
-  axe: '🪚',
-  pickaxe: '⛏️',
-  scythe: '🌾',
-  parsnip_seed: '🌱',
-  potato_seed: '🥔',
-  cauliflower_seed: '🥬',
-  tomato_seed: '🍅',
-  corn_seed: '🌽',
+  hoe: 'Hack',
+  can: 'Gieß',
+  axe: 'Axt',
+  pickaxe: 'Pick',
+  scythe: 'Sense',
+  parsnip_seed: 'Past',
+  potato_seed: 'Kart',
+  cauliflower_seed: 'Blum',
+  tomato_seed: 'Toma',
+  corn_seed: 'Mais',
 };
 
 function toast(msg) {

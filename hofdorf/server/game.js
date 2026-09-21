@@ -94,7 +94,8 @@ export class Game {
 
   tryAction(id, payload = {}) {
     const p = this.players.get(id);
-    if (!p || p.actionCooldown > 0) return null;
+    if (!p) return null;
+    if (p.actionCooldown > 0) return { error: 'Kurz warten…' };
     if (payload.sleep) return this.sleep(p);
     if (payload.shop) return this.shop(p, payload);
     if (payload.chat) {
@@ -105,10 +106,15 @@ export class Game {
     const fx = Math.floor(p.x) + p.facing.x;
     const fy = Math.floor(p.y) + p.facing.y;
     const slot = p.hotbar[p.selected];
-    p.actionCooldown = 0.25;
+    p.actionCooldown = 0.18;
     p.anim = 0.3;
 
-    const result = this.useOnTile(p, slot, fx, fy);
+    // Prefer facing tile; fall back to tile under feet (friendlier on mobile)
+    let result = this.useOnTile(p, slot, fx, fy);
+    if (result?.error) {
+      const under = this.useOnTile(p, slot, Math.floor(p.x), Math.floor(p.y));
+      if (!under?.error) result = under;
+    }
     return result;
   }
 
@@ -456,13 +462,14 @@ export class Game {
   }
 
   fullJoinPayload(playerId) {
+    const snap = this.snapshotFor(playerId);
     return {
+      ...snap,
       type: 'welcome',
       tiles: serializeTiles(this.world),
       worldW: WORLD_W,
       worldH: WORLD_H,
       crops: CROPS,
-      ...this.snapshotFor(playerId),
     };
   }
 }

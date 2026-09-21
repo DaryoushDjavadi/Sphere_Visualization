@@ -95,17 +95,30 @@ function buildFarm(tiles, farm, overlays) {
   const fieldH = h - 7;
   fillRect(tiles, fieldX, fieldY, fieldW, fieldH, T.GRASS);
 
-  // Cabin
-  const cx = ox + Math.floor(w / 2) - 2;
-  const cy = oy + 1;
+  // Cabin on the side opposite the town gate so the exit stays clear
+  let cx = ox + Math.floor(w / 2) - 2;
+  let cy = oy + 1;
+  if (farm.id === 's') {
+    cy = oy + h - 4; // cabin at south end, gate is north
+  } else if (farm.id === 'n') {
+    cy = oy + 1; // cabin north, gate south
+  } else if (farm.id === 'w') {
+    cx = ox + 1;
+    cy = oy + Math.floor(h / 2) - 1;
+  } else if (farm.id === 'e') {
+    cx = ox + w - 6;
+    cy = oy + Math.floor(h / 2) - 1;
+  }
+
   fillRect(tiles, cx, cy, 5, 3, T.BUILDING);
-  tiles[idx(cx + 2, cy + 2)] = T.DOOR;
+  // Door facing toward field / town
+  const doorY = farm.id === 's' ? cy : cy + 2;
+  tiles[idx(cx + 2, doorY)] = T.DOOR;
   tiles[idx(cx + 1, cy + 1)] = T.BED;
 
   // Fence around farm with gate toward town
   stampFence(tiles, ox, oy, w, h);
 
-  // Gate openings toward town center
   const midX = ox + Math.floor(w / 2);
   const midY = oy + Math.floor(h / 2);
   if (farm.id === 'n') {
@@ -126,9 +139,24 @@ function buildFarm(tiles, farm, overlays) {
   scatter(tiles, ox + 1, oy + 1, w - 2, h - 2, T.TREE, 0.04, new Set([T.BUILDING, T.DOOR, T.BED, T.PATH, T.FENCE]));
   scatter(tiles, ox + 1, oy + 1, w - 2, h - 2, T.ROCK, 0.03, new Set([T.BUILDING, T.DOOR, T.BED, T.PATH, T.FENCE, T.TREE]));
 
+  // Clear field interior of trees/rocks so farming is playable
+  fillRect(tiles, fieldX, fieldY, fieldW, fieldH, T.GRASS);
+
+  // Clear a lane from field to gate
+  if (farm.id === 'n') {
+    fillRect(tiles, midX, fieldY + fieldH, 2, (oy + h) - (fieldY + fieldH), T.PATH);
+  } else if (farm.id === 's') {
+    fillRect(tiles, midX, oy + 1, 2, fieldY - (oy + 1), T.PATH);
+  } else if (farm.id === 'w') {
+    fillRect(tiles, fieldX + fieldW, midY, (ox + w) - (fieldX + fieldW), 2, T.PATH);
+  } else if (farm.id === 'e') {
+    fillRect(tiles, ox + 1, midY, fieldX - (ox + 1), 2, T.PATH);
+  }
+
   farm.field = { x: fieldX, y: fieldY, w: fieldW, h: fieldH };
   farm.bed = { x: cx + 1, y: cy + 1 };
-  farm.door = { x: cx + 2, y: cy + 2 };
+  farm.door = { x: cx + 2, y: doorY };
+  farm.spawn = { x: fieldX + Math.floor(fieldW / 2), y: fieldY + Math.floor(fieldH / 2) };
 }
 
 function buildTown(tiles) {
@@ -138,11 +166,11 @@ function buildTown(tiles) {
   // Plaza
   fillRect(tiles, ox + 8, oy + 7, 8, 6, T.FLOOR);
 
-  // Fountain center
-  tiles[idx(ox + 11, oy + 9)] = T.WATER;
-  tiles[idx(ox + 12, oy + 9)] = T.WATER;
-  tiles[idx(ox + 11, oy + 10)] = T.WATER;
-  tiles[idx(ox + 12, oy + 10)] = T.WATER;
+  // Fountain offset from the main N/S path (path runs at world x≈40)
+  tiles[idx(ox + 9, oy + 9)] = T.WATER;
+  tiles[idx(ox + 10, oy + 9)] = T.WATER;
+  tiles[idx(ox + 9, oy + 10)] = T.WATER;
+  tiles[idx(ox + 10, oy + 10)] = T.WATER;
 
   // Shop (Pierre-like)
   fillRect(tiles, ox + 3, oy + 3, 6, 4, T.BUILDING);
