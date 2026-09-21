@@ -1,0 +1,20 @@
+{
+  "name": "hofdorf",
+  "version": "1.0.0",
+  "description": "Multiplayer farming game - eigener Hof, geteilte Stadt",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1",
+    "uuid": "^14.0.2",
+    "ws": "^8.21.3"
+  },
+  "type": "module"
+}

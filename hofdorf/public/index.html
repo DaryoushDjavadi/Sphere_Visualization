@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#1a3a28" />
+  <title>Hofdorf</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800&family=Lilita+One&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="boot">
+    <div class="boot-card">
+      <p class="brand">Hofdorf</p>
+      <p class="tagline">Dein Hof. Eine Stadt. Viele Nachbarn.</p>
+      <label class="name-label">Dein Name
+        <input id="nameInput" maxlength="16" placeholder="Bauer" autocomplete="off" />
+      </label>
+      <button id="joinBtn" type="button">Hof betreten</button>
+      <p class="hint">WASD / Pfeile · Leertaste Aktion · 1–8 Hotbar · Touch-Stick am Handy · ? für Hilfe</p>
+    </div>
+  </div>
+
+  <div id="game" class="hidden">
+    <canvas id="canvas"></canvas>
+
+    <div id="hud">
+      <div class="hud-top">
+        <div class="brand-mini">Hofdorf</div>
+        <div id="clock"></div>
+        <div id="stats"></div>
+      </div>
+      <div id="zoneLabel"></div>
+      <div id="toast"></div>
+    </div>
+
+    <div id="hotbar"></div>
+    <div id="chatLog"></div>
+
+    <div id="touch">
+      <div id="stick" class="stick">
+        <div id="knob" class="knob"></div>
+      </div>
+      <div class="touch-actions">
+        <button id="btnAction" type="button" class="round-btn">A</button>
+        <button id="btnMap" type="button" class="round-btn secondary">Karte</button>
+        <button id="btnInv" type="button" class="round-btn secondary">Pack</button>
+        <button id="btnShop" type="button" class="round-btn secondary">Laden</button>
+        <button id="btnHelp" type="button" class="round-btn secondary">Hilfe</button>
+        <button id="btnSleep" type="button" class="round-btn secondary">Schlaf</button>
+      </div>
+    </div>
+
+    <div id="chatBar" class="chat-bar">
+      <input id="chatInput" maxlength="80" placeholder="Chat…" autocomplete="off" />
+      <button id="chatSend" type="button">OK</button>
+    </div>
+
+    <button id="minimapBtn" type="button" class="minimap-wrap" title="Karte öffnen" aria-label="Karte">
+      <canvas id="minimap" width="140" height="120"></canvas>
+    </button>
+
+    <div id="mapModal" class="modal hidden">
+      <div class="modal-card wide map-card">
+        <h2>Weltkarte</h2>
+        <p class="muted">Alle Höfe, Stadt und Spieler. Tippe auf die Mini-Karte oder „Karte“.</p>
+        <canvas id="worldMap" width="336" height="288"></canvas>
+        <div class="map-legend" id="mapLegend"></div>
+        <div class="rename-row">
+          <label>Dein Hof nennen
+            <input id="farmNameInput" maxlength="18" placeholder="z.B. Sonnenacker" autocomplete="off" />
+          </label>
+          <button id="renameFarmBtn" type="button" class="full">Namen speichern</button>
+        </div>
+        <button id="closeMap" type="button" class="ghost full">Schließen</button>
+      </div>
+    </div>
+
+    <div id="shop" class="modal hidden">
+      <div class="modal-card wide">
+        <h2>Dorfwirtschaft</h2>
+        <div class="tabs">
+          <button type="button" class="tab active" data-tab="market">Markt</button>
+          <button type="button" class="tab" data-tab="business">Läden</button>
+        </div>
+        <div id="tabMarket" class="tab-pane">
+          <p class="muted">Samen kaufen oder Ernte verkaufen.</p>
+          <div id="shopList" class="shop-list"></div>
+          <button id="sellAll" type="button" class="full">Alles verkaufen</button>
+        </div>
+        <div id="tabBusiness" class="tab-pane hidden">
+          <p class="muted">Läden übernehmen, Freunde als Teilhaber, Farm-Waren verarbeiten.</p>
+          <div id="businessList" class="shop-list"></div>
+          <div id="businessDetail" class="biz-detail hidden"></div>
+        </div>
+        <button id="closeShop" type="button" class="ghost full">Schließen</button>
+      </div>
+    </div>
+
+    <div id="help" class="modal hidden">
+      <div class="modal-card wide">
+        <h2>Hilfe</h2>
+        <div class="tabs" id="helpTabs">
+          <button type="button" class="tab active" data-help="steuern">Steuern</button>
+          <button type="button" class="tab" data-help="farm">Hof</button>
+          <button type="button" class="tab" data-help="stadt">Stadt</button>
+          <button type="button" class="tab" data-help="laden">Läden</button>
+          <button type="button" class="tab" data-help="multi">Online</button>
+        </div>
+        <div id="helpBody" class="help-body"></div>
+        <button id="closeHelp" type="button" class="ghost full">Schließen</button>
+      </div>
+    </div>
+
+    <div id="invModal" class="modal hidden">
+      <div class="modal-card wide">
+        <h2>Rucksack</h2>
+        <p class="muted" id="invMeta"></p>
+        <div id="invList" class="inv-grid"></div>
+        <div class="tabs" style="margin-top:10px">
+          <button type="button" class="tab" id="btnBuyChicken">Huhn 400g</button>
+          <button type="button" class="tab" id="btnBuyCow">Kuh 1000g</button>
+          <button type="button" class="tab" id="btnMineWarp">Mine</button>
+          <button type="button" class="tab" id="btnUpgradeHoe">Hacke+</button>
+        </div>
+        <div id="animalPanel" class="biz-detail"></div>
+        <div id="questPanel" class="biz-detail"></div>
+        <div id="projectPanel" class="biz-detail"></div>
+        <div class="rename-row">
+          <label>Handel anbieten
+            <input id="tradeTo" maxlength="16" placeholder="Spielername" autocomplete="off" />
+          </label>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+            <input id="tradeItem" maxlength="20" placeholder="item z.B. tomato" style="flex:1;min-width:100px" />
+            <input id="tradeQty" type="number" value="1" min="1" max="20" style="width:64px" />
+            <input id="tradeGold" type="number" value="0" min="0" style="width:80px" placeholder="Gold vom Käufer" />
+            <button type="button" id="tradeSend" class="full" style="width:auto;padding:8px 12px">Anbieten</button>
+          </div>
+          <div id="tradeOffers"></div>
+        </div>
+        <button id="closeInv" type="button" class="ghost full">Schließen</button>
+      </div>
+    </div>
+
+    <div id="npcModal" class="modal hidden">
+      <div class="modal-card">
+        <h2 id="npcTitle">NPC</h2>
+        <p class="muted" id="npcText"></p>
+        <button id="npcQuestBtn" type="button" class="full">Auftrag erfüllen</button>
+        <button id="closeNpc" type="button" class="ghost full">Schließen</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/client.js"></script>
+</body>
+</html>
