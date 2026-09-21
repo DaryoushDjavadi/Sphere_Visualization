@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#1a3a28" />
+  <title>Hofdorf</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800&family=Lilita+One&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="boot">
+    <div class="boot-card">
+      <p class="brand">Hofdorf</p>
+      <p class="tagline">Dein Hof. Eine Stadt. Viele Nachbarn.</p>
+      <label class="name-label">Dein Name
+        <input id="nameInput" maxlength="16" placeholder="Bauer" autocomplete="off" />
+      </label>
+      <button id="joinBtn" type="button">Hof betreten</button>
+      <p class="hint">WASD / Pfeile · Leertaste Aktion · 1–8 Hotbar · Touch-Stick am Handy</p>
+    </div>
+  </div>
+
+  <div id="game" class="hidden">
+    <canvas id="canvas"></canvas>
+
+    <div id="hud">
+      <div class="hud-top">
+        <div class="brand-mini">Hofdorf</div>
+        <div id="clock"></div>
+        <div id="stats"></div>
+      </div>
+      <div id="zoneLabel"></div>
+      <div id="toast"></div>
+    </div>
+
+    <div id="hotbar"></div>
+    <div id="chatLog"></div>
+
+    <div id="touch">
+      <div id="stick" class="stick">
+        <div id="knob" class="knob"></div>
+      </div>
+      <div class="touch-actions">
+        <button id="btnAction" type="button" class="round-btn">A</button>
+        <button id="btnShop" type="button" class="round-btn secondary">Laden</button>
+        <button id="btnSleep" type="button" class="round-btn secondary">Schlaf</button>
+      </div>
+    </div>
+
+    <div id="shop" class="modal hidden">
+      <div class="modal-card">
+        <h2>Dorfladen</h2>
+        <p class="muted">Samen kaufen oder Ernte verkaufen.</p>
+        <div id="shopList" class="shop-list"></div>
+        <button id="sellAll" type="button" class="full">Alles verkaufen</button>
+        <button id="closeShop" type="button" class="ghost full">Schließen</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/client.js"></script>
+</body>
+</html>
