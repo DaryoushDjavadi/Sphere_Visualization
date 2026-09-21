@@ -13,6 +13,7 @@ import {
   WORLD_W,
   WORLD_H,
 } from './world.js';
+import { createShops, isShopMember } from './shops.js';
 
 const PLAYER_SPEED = 4.2; // tiles per second
 const TICK_MS = 50;
@@ -27,6 +28,7 @@ export class Game {
     this.chat = [];
     this.lastTick = Date.now();
     this.dayAccum = 0;
+    this.shops = createShops();
   }
 
   addPlayer(id, name) {
@@ -48,7 +50,7 @@ export class Game {
       color,
       energy: 100,
       maxEnergy: 100,
-      gold: 500,
+      gold: 1500,
       inventory: createEmptyInventory(),
       hotbar: [...HOTBAR_SLOTS],
       selected: 0,
@@ -285,7 +287,6 @@ export class Game {
   }
 
   sleep(p) {
-    // Advance to next morning for everyone (shared world clock)
     this.advanceDay();
     p.energy = p.maxEnergy;
     p.x = (farmForOwner(this.world, p.id)?.spawn.x || p.x) + 0.5;
@@ -303,6 +304,8 @@ export class Game {
       if (p.gold < crop.seedPrice) return { error: 'Zu wenig Gold' };
       p.gold -= crop.seedPrice;
       p.inventory[seedKey] = (p.inventory[seedKey] || 0) + 1;
+      const seedShop = this.shops.find((s) => s.id === 'seeds');
+      if (seedShop?.ownerId) seedShop.earnings += Math.floor(crop.seedPrice * 0.35);
       return { ok: true, bought: crop.seedName };
     }
     if (payload.sell) {
@@ -317,7 +320,116 @@ export class Game {
       p.gold += earned;
       return { ok: true, earned };
     }
+    if (payload.claim) return this.claimShop(p, payload.claim);
+    if (payload.invite) return this.invitePartner(p, payload.shopId, payload.invite);
+    if (payload.deposit) return this.depositToShop(p, payload.shopId, payload.deposit, payload.qty || 1);
+    if (payload.produce) return this.runRecipe(p, payload.shopId, payload.produce);
+    if (payload.collect) return this.collectEarnings(p, payload.shopId);
     return { shop: true };
+  }
+
+  getShop(id) {
+    return this.shops.find((s) => s.id === id) || null;
+  }
+
+  claimShop(p, shopId) {
+    const shop = this.getShop(shopId);
+    if (!shop) return { error: 'Laden unbekannt' };
+    if (shop.ownerId) return { error: 'Bereits übernommen' };
+    if (p.gold < shop.claimPrice) return { error: 'Zu wenig Gold' };
+    if (this.shops.some((s) => s.ownerId === p.id)) return { error: 'Du hast schon einen Laden' };
+    p.gold -= shop.claimPrice;
+    shop.ownerId = p.id;
+    shop.ownerName = p.name;
+    shop.partners = [];
+    this.pushChat('system', `${p.name} übernimmt ${shop.name}!`);
+    return { ok: true, claimed: shop.name };
+  }
+
+  invitePartner(p, shopId, partnerName) {
+    const shop = this.getShop(shopId);
+    if (!shop) return { error: 'Laden unbekannt' };
+    if (shop.ownerId !== p.id) return { error: 'Nur der Besitzer lädt ein' };
+    const partner = [...this.players.values()].find(
+      (o) => o.name.toLowerCase() === String(partnerName || '').trim().toLowerCase(),
+    );
+    if (!partner) return { error: 'Spieler nicht online' };
+    if (partner.id === p.id) return { error: 'Das bist du selbst' };
+    if (shop.partners.some((x) => x.id === partner.id)) return { error: 'Schon Teilhaber' };
+    if (shop.partners.length >= 3) return { error: 'Max. 3 Teilhaber' };
+    shop.partners.push({ id: partner.id, name: partner.name });
+    this.pushChat('system', `${partner.name} ist Teilhaber von ${shop.name}.`);
+    return { ok: true, partner: partner.name };
+  }
+
+  depositToShop(p, shopId, item, qty) {
+    const shop = this.getShop(shopId);
+    if (!shop) return { error: 'Laden unbekannt' };
+    if (!isShopMember(shop, p.id)) return { error: 'Kein Zugang' };
+    qty = Math.max(1, Math.min(99, Number(qty) || 1));
+    if ((p.inventory[item] || 0) < qty) return { error: 'Nicht genug im Inventar' };
+    p.inventory[item] -= qty;
+    shop.vault[item] = (shop.vault[item] || 0) + qty;
+    return { ok: true, deposited: `${qty}× ${item}` };
+  }
+
+  runRecipe(p, shopId, recipeId) {
+    const shop = this.getShop(shopId);
+    if (!shop) return { error: 'Laden unbekannt' };
+    if (!isShopMember(shop, p.id)) return { error: 'Kein Zugang' };
+    if (!shop.recipes) return { error: 'Keine Rezepte' };
+    const recipe = shop.recipes.find((r) => r.id === recipeId);
+    if (!recipe) return { error: 'Rezept unbekannt' };
+    for (const [item, need] of Object.entries(recipe.needs)) {
+      if ((shop.vault[item] || 0) < need) return { error: `Fehlt: ${item}` };
+    }
+    for (const [item, need] of Object.entries(recipe.needs)) {
+      shop.vault[item] -= need;
+    }
+    shop.earnings += recipe.gold;
+    this.pushChat('system', `${shop.name}: ${recipe.name} (+${recipe.gold} Gold)`);
+    return { ok: true, produced: recipe.name, gold: recipe.gold };
+  }
+
+  collectEarnings(p, shopId) {
+    const shop = this.getShop(shopId);
+    if (!shop) return { error: 'Laden unbekannt' };
+    if (!isShopMember(shop, p.id)) return { error: 'Kein Zugang' };
+    if (shop.earnings <= 0) return { error: 'Keine Einnahmen' };
+    const members = [{ id: shop.ownerId, name: shop.ownerName }, ...shop.partners];
+    const share = Math.floor(shop.earnings / members.length);
+    const rest = shop.earnings - share * members.length;
+    for (const m of members) {
+      const pl = this.players.get(m.id);
+      if (pl) pl.gold += share + (m.id === shop.ownerId ? rest : 0);
+    }
+    const paid = shop.earnings;
+    shop.earnings = 0;
+    shop.lastPayout = paid;
+    return { ok: true, collected: paid, share };
+  }
+
+  runShopMorning() {
+    for (const shop of this.shops) {
+      if (!shop.ownerId) continue;
+      if (shop.kind === 'seeds') {
+        shop.earnings += 25;
+        continue;
+      }
+      if (!shop.recipes) continue;
+      for (const recipe of shop.recipes) {
+        const ok = Object.entries(recipe.needs).every(
+          ([item, need]) => (shop.vault[item] || 0) >= need,
+        );
+        if (!ok) continue;
+        for (const [item, need] of Object.entries(recipe.needs)) {
+          shop.vault[item] -= need;
+        }
+        shop.earnings += recipe.gold;
+        this.pushChat('system', `${shop.name} produziert ${recipe.name}.`);
+        break;
+      }
+    }
   }
 
   advanceDay() {
@@ -325,7 +437,6 @@ export class Game {
     this.world.timeMinutes = WAKE_MINUTES;
     this.dayAccum = 0;
 
-    // Grow watered crops
     for (const [key, ov] of Object.entries(this.world.overlays)) {
       if (ov.type !== 'crop') {
         if (ov.type === 'wet') delete this.world.overlays[key];
@@ -340,10 +451,10 @@ export class Game {
       ov.watered = false;
     }
 
-    // Weather roulette
+    this.runShopMorning();
+
     const roll = Math.random();
     this.world.weather = roll < 0.7 ? 'sonnig' : roll < 0.9 ? 'bewölkt' : 'regen';
-    // Rain waters everything
     if (this.world.weather === 'regen') {
       for (const ov of Object.values(this.world.overlays)) {
         if (ov.type === 'crop') ov.watered = true;
@@ -456,6 +567,21 @@ export class Game {
       })),
       town: this.world.town,
       overlays: this.world.overlays,
+      shops: this.shops.map((s) => ({
+        id: s.id,
+        name: s.name,
+        blurb: s.blurb,
+        claimPrice: s.claimPrice,
+        x: s.x,
+        y: s.y,
+        kind: s.kind,
+        recipes: s.recipes,
+        ownerId: s.ownerId,
+        ownerName: s.ownerName,
+        partners: s.partners,
+        vault: s.vault,
+        earnings: s.earnings,
+      })),
       players,
       chat: this.chat.slice(-12),
     };

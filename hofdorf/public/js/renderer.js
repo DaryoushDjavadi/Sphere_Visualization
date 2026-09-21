@@ -152,6 +152,26 @@ export class Renderer {
       }
     }
 
+    // Shop markers in town
+    if (state.shops) {
+      ctx.font = '700 11px Nunito, sans-serif';
+      ctx.textAlign = 'center';
+      for (const shop of state.shops) {
+        const sx = shop.x * TILE + TILE / 2 + ox;
+        const sy = shop.y * TILE + oy;
+        ctx.fillStyle = 'rgba(196, 92, 58, 0.9)';
+        ctx.beginPath();
+        ctx.arc(sx, sy + 8, 6, 0, Math.PI * 2);
+        ctx.fill();
+        const label = shop.ownerName ? `${shop.name}` : `${shop.name} (frei)`;
+        const tw = ctx.measureText(label).width + 8;
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(sx - tw / 2, sy - 14, tw, 14);
+        ctx.fillStyle = '#f0c75e';
+        ctx.fillText(label, sx, sy - 3);
+      }
+    }
+
     // Overlays / crops
     if (state.overlays) {
       for (const [key, ov] of Object.entries(state.overlays)) {

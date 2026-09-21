@@ -20,7 +20,7 @@
         <input id="nameInput" maxlength="16" placeholder="Bauer" autocomplete="off" />
       </label>
       <button id="joinBtn" type="button">Hof betreten</button>
-      <p class="hint">WASD / Pfeile · Leertaste Aktion · 1–8 Hotbar · Touch-Stick am Handy</p>
+      <p class="hint">WASD / Pfeile · Leertaste Aktion · 1–8 Hotbar · Touch-Stick am Handy · ? für Hilfe</p>
     </div>
   </div>
 
@@ -47,17 +47,44 @@
       <div class="touch-actions">
         <button id="btnAction" type="button" class="round-btn">A</button>
         <button id="btnShop" type="button" class="round-btn secondary">Laden</button>
+        <button id="btnHelp" type="button" class="round-btn secondary">Hilfe</button>
         <button id="btnSleep" type="button" class="round-btn secondary">Schlaf</button>
       </div>
     </div>
 
     <div id="shop" class="modal hidden">
-      <div class="modal-card">
-        <h2>Dorfladen</h2>
-        <p class="muted">Samen kaufen oder Ernte verkaufen.</p>
-        <div id="shopList" class="shop-list"></div>
-        <button id="sellAll" type="button" class="full">Alles verkaufen</button>
+      <div class="modal-card wide">
+        <h2>Dorfwirtschaft</h2>
+        <div class="tabs">
+          <button type="button" class="tab active" data-tab="market">Markt</button>
+          <button type="button" class="tab" data-tab="business">Läden</button>
+        </div>
+        <div id="tabMarket" class="tab-pane">
+          <p class="muted">Samen kaufen oder Ernte verkaufen.</p>
+          <div id="shopList" class="shop-list"></div>
+          <button id="sellAll" type="button" class="full">Alles verkaufen</button>
+        </div>
+        <div id="tabBusiness" class="tab-pane hidden">
+          <p class="muted">Läden übernehmen, Freunde als Teilhaber, Farm-Waren verarbeiten.</p>
+          <div id="businessList" class="shop-list"></div>
+          <div id="businessDetail" class="biz-detail hidden"></div>
+        </div>
         <button id="closeShop" type="button" class="ghost full">Schließen</button>
+      </div>
+    </div>
+
+    <div id="help" class="modal hidden">
+      <div class="modal-card wide">
+        <h2>Hilfe</h2>
+        <div class="tabs" id="helpTabs">
+          <button type="button" class="tab active" data-help="steuern">Steuern</button>
+          <button type="button" class="tab" data-help="farm">Hof</button>
+          <button type="button" class="tab" data-help="stadt">Stadt</button>
+          <button type="button" class="tab" data-help="laden">Läden</button>
+          <button type="button" class="tab" data-help="multi">Online</button>
+        </div>
+        <div id="helpBody" class="help-body"></div>
+        <button id="closeHelp" type="button" class="ghost full">Schließen</button>
       </div>
     </div>
   </div>
