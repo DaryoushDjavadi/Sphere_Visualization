@@ -1,4 +1,4 @@
-import { CROPS, TOOLS, createEmptyInventory, HOTBAR_SLOTS } from './crops.js';
+import { CROPS, TOOLS, createEmptyInventory, HOTBAR_SLOTS, createDefaultToolLevels, toolEnergy, ANIMALS } from './crops.js';
 import {
   T,
   tileAt,
@@ -15,6 +15,15 @@ import {
   WORLD_H,
 } from './world.js';
 import { createShops, isShopMember } from './shops.js';
+import {
+  attachSystems,
+  systemsTick,
+  systemsMorning,
+  handleExtraAction,
+  sellPrice,
+} from './systems.js';
+import { loadSave, writeSave } from './save.js';
+import { createFarmAnimals } from './content.js';
 
 const PLAYER_SPEED = 4.2; // tiles per second
 const TICK_MS = 50;
@@ -25,34 +34,73 @@ const SLEEP_MINUTES = 26 * 60; // 2:00 next calendar day stretch
 export class Game {
   constructor(world) {
     this.world = world;
-    this.players = new Map(); // id -> player
+    this.players = new Map();
     this.chat = [];
     this.lastTick = Date.now();
     this.dayAccum = 0;
     this.shops = createShops();
+    this.saveBlob = loadSave();
+    if (this.saveBlob.day) this.world.day = this.saveBlob.day;
+    if (this.saveBlob.season) this.world.season = this.saveBlob.season;
+    attachSystems(this);
+    if (this.saveBlob.townProject) this.townProject = this.saveBlob.townProject;
+    for (const farm of this.world.farms) {
+      farm.animals = farm.animals || createFarmAnimals();
+    }
+    this._saveTimer = setInterval(() => this.persist(), 15000);
+  }
+
+  persist() {
+    const players = {};
+    for (const p of this.players.values()) {
+      players[p.name.toLowerCase()] = {
+        gold: p.gold,
+        inventory: p.inventory,
+        toolLevels: p.toolLevels,
+        energy: p.energy,
+        farmId: p.farmId,
+        farmCustomName: farmForOwner(this.world, p.id)?.customName || null,
+        animals: farmForOwner(this.world, p.id)?.animals || [],
+      };
+    }
+    // merge with offline saves
+    const merged = { ...(this.saveBlob.players || {}), ...players };
+    this.saveBlob = {
+      players: merged,
+      townProject: this.townProject,
+      day: this.world.day,
+      season: this.world.season,
+    };
+    writeSave(this.saveBlob);
   }
 
   addPlayer(id, name) {
+    const safeName = (name || 'Bauer').slice(0, 16);
+    const saved = this.saveBlob.players?.[safeName.toLowerCase()];
     const farm = assignFarm(this.world, id);
     const colors = ['#e85d4c', '#4c8fe8', '#e8c84c', '#4ce88a', '#c44ce8', '#e87a4c'];
     const color = colors[this.players.size % colors.length];
     const spawn = farm
       ? { x: farm.spawn.x + 0.5, y: farm.spawn.y + 0.5 }
-      : { x: 40.5, y: 30.5 };
+      : { x: this.world.town.ox + 12.5, y: this.world.town.oy + 10.5 };
+
+    if (farm && saved?.farmCustomName) farm.customName = saved.farmCustomName;
+    if (farm && saved?.animals) farm.animals = saved.animals;
 
     const player = {
       id,
-      name: (name || 'Bauer').slice(0, 16),
+      name: safeName,
       x: spawn.x,
       y: spawn.y,
       vx: 0,
       vy: 0,
       dir: 'down',
       color,
-      energy: 100,
+      energy: saved?.energy ?? 100,
       maxEnergy: 100,
-      gold: 1500,
-      inventory: createEmptyInventory(),
+      gold: saved?.gold ?? 1500,
+      inventory: saved?.inventory ? { ...createEmptyInventory(), ...saved.inventory } : createEmptyInventory(),
+      toolLevels: saved?.toolLevels || createDefaultToolLevels(),
       hotbar: [...HOTBAR_SLOTS],
       selected: 0,
       farmId: farm?.id || null,
@@ -68,9 +116,12 @@ export class Game {
   removePlayer(id) {
     const p = this.players.get(id);
     if (p) {
+      this.persist();
       this.pushChat('system', `${p.name} ist gegangen.`);
+      // keep farm animals/name in save; release slot for new players
       releaseFarm(this.world, id);
       this.players.delete(id);
+      this.trades?.delete(id);
     }
   }
 
@@ -98,14 +149,16 @@ export class Game {
   tryAction(id, payload = {}) {
     const p = this.players.get(id);
     if (!p) return null;
-    if (p.actionCooldown > 0) return { error: 'Kurz warten…' };
+    if (payload.chat) {
+      this.pushChat(p.name, String(payload.chat).slice(0, 80));
+      return { ok: true, chatted: true };
+    }
+    if (p.actionCooldown > 0 && !payload.shop && !payload.renameFarm) return { error: 'Kurz warten…' };
     if (payload.sleep) return this.sleep(p);
     if (payload.shop) return this.shop(p, payload);
     if (payload.renameFarm) return this.renameFarm(p, payload.renameFarm);
-    if (payload.chat) {
-      this.pushChat(p.name, String(payload.chat).slice(0, 80));
-      return { ok: true };
-    }
+    const extra = handleExtraAction(this, p, payload);
+    if (extra) return extra;
 
     const fx = Math.floor(p.x) + p.facing.x;
     const fy = Math.floor(p.y) + p.facing.y;
@@ -113,7 +166,9 @@ export class Game {
     p.actionCooldown = 0.18;
     p.anim = 0.3;
 
-    // Prefer facing tile; fall back to tile under feet (friendlier on mobile)
+    // Fishing rod
+    if (slot === 'rod') return handleExtraAction(this, p, { fish: true });
+
     let result = this.useOnTile(p, slot, fx, fy);
     if (result?.error) {
       const under = this.useOnTile(p, slot, Math.floor(p.x), Math.floor(p.y));
@@ -163,14 +218,24 @@ export class Game {
     }
 
     if (slot === 'hoe') {
-      if (p.energy < TOOLS.hoe.energy) return { error: 'Keine Energie' };
+      const lvl = p.toolLevels?.hoe || 1;
+      const cost = toolEnergy('hoe', lvl);
+      if (p.energy < cost) return { error: 'Keine Energie' };
       if (kind === T.GRASS || kind === T.PATH || kind === T.FLOWER) {
-        // Only till on own farm field-ish (or any grass on own farm)
         if (zone.type === 'farm' && zone.farm.ownerId && zone.farm.ownerId !== p.id) {
           return { error: 'Fremder Hof — nur anschauen' };
         }
         setTile(this.world, x, y, T.DIRT);
-        p.energy -= TOOLS.hoe.energy;
+        // higher hoe levels till neighbors
+        if (lvl >= 2) {
+          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]].slice(0, lvl >= 3 ? 4 : 2)) {
+            const nx = x + dx;
+            const ny = y + dy;
+            const nk = tileAt(this.world, nx, ny);
+            if (nk === T.GRASS || nk === T.FLOWER) setTile(this.world, nx, ny, T.DIRT);
+          }
+        }
+        p.energy -= cost;
         return { ok: true, tilled: true };
       }
       return { error: 'Hier kann man nicht hacken' };
@@ -208,12 +273,21 @@ export class Game {
     }
 
     if (slot === 'pickaxe') {
-      if (p.energy < TOOLS.pickaxe.energy) return { error: 'Keine Energie' };
+      const cost = toolEnergy('pickaxe', p.toolLevels?.pickaxe || 1);
+      if (p.energy < cost) return { error: 'Keine Energie' };
       if (kind === T.ROCK) {
         setTile(this.world, x, y, T.GRASS);
         p.inventory.stone = (p.inventory.stone || 0) + 1;
-        p.energy -= TOOLS.pickaxe.energy;
-        return { ok: true, stone: true };
+        const mine = this.world.mine;
+        const inMine = mine && x >= mine.ox && x < mine.ox + mine.w && y >= mine.oy && y < mine.oy + mine.h;
+        if (inMine || Math.random() < 0.35) {
+          p.inventory.ore = (p.inventory.ore || 0) + 1;
+        }
+        if (inMine && Math.random() < 0.2) {
+          p.inventory.coal = (p.inventory.coal || 0) + 1;
+        }
+        p.energy -= cost;
+        return { ok: true, stone: true, ore: inMine };
       }
       // Clear crop / untilled dirt back
       if (overlay && overlay.type === 'crop') {
@@ -272,6 +346,9 @@ export class Game {
       if (zone.type === 'farm' && zone.farm.ownerId && zone.farm.ownerId !== p.id) {
         return { error: 'Fremder Hof — nur anschauen' };
       }
+      if (crop.seasons && !crop.seasons.includes(this.world.season)) {
+        return { error: `Nur in ${crop.seasons.join('/')}` };
+      }
       p.inventory[slot] -= 1;
       this.world.overlays[key] = {
         type: 'crop',
@@ -325,16 +402,24 @@ export class Game {
     }
     if (payload.sell) {
       let earned = 0;
-      for (const crop of Object.values(CROPS)) {
-        const n = p.inventory[crop.id] || 0;
-        if (n > 0) {
-          earned += n * crop.sellPrice;
-          p.inventory[crop.id] = 0;
-        }
+      const sellables = [
+        ...Object.keys(CROPS),
+        'egg', 'milk', 'fish_common', 'fish_river', 'fish_rare',
+        'ore', 'coal', 'wood', 'stone',
+      ];
+      for (const id of sellables) {
+        const n = p.inventory[id] || 0;
+        if (n <= 0) continue;
+        const price = sellPrice(id, this);
+        if (price <= 0) continue;
+        earned += n * price;
+        p.inventory[id] = 0;
       }
       p.gold += earned;
-      return { ok: true, earned };
+      return { ok: true, earned, marketMod: this.marketMod };
     }
+    if (payload.buyAnimal) return handleExtraAction(this, p, payload);
+    if (payload.upgradeTool) return handleExtraAction(this, p, payload);
     if (payload.claim) return this.claimShop(p, payload.claim);
     if (payload.invite) return this.invitePartner(p, payload.shopId, payload.invite);
     if (payload.deposit) return this.depositToShop(p, payload.shopId, payload.deposit, payload.qty || 1);
@@ -467,6 +552,7 @@ export class Game {
     }
 
     this.runShopMorning();
+    systemsMorning(this);
 
     const roll = Math.random();
     this.world.weather = roll < 0.7 ? 'sonnig' : roll < 0.9 ? 'bewölkt' : 'regen';
@@ -481,12 +567,15 @@ export class Game {
       const i = seasons.indexOf(this.world.season);
       this.world.season = seasons[(i + 1) % 4];
     }
+    this.persist();
   }
 
   tick() {
     const now = Date.now();
     const dt = Math.min(0.1, (now - this.lastTick) / 1000);
     this.lastTick = now;
+
+    systemsTick(this, dt);
 
     // Shared clock
     this.dayAccum += dt * 1000;
@@ -560,9 +649,13 @@ export class Game {
         inventory: p.inventory,
         hotbar: p.hotbar,
         selected: p.selected,
+        toolLevels: p.toolLevels || createDefaultToolLevels(),
         self: p.id === playerId,
       });
     }
+
+    const you = this.players.get(playerId);
+    const openTrades = [...(this.trades?.values() || [])].filter((t) => t.to === playerId);
 
     return {
       type: 'state',
@@ -571,6 +664,8 @@ export class Game {
       season: this.world.season,
       time: this.formatTime(),
       weather: this.world.weather,
+      marketMod: this.marketMod || 1,
+      festival: this.festival || null,
       farms: this.world.farms.map((f) => ({
         id: f.id,
         name: f.name,
@@ -581,8 +676,11 @@ export class Game {
         oy: f.oy,
         w: f.w,
         h: f.h,
+        animals: f.animals || [],
       })),
       town: this.world.town,
+      mine: this.world.mine,
+      mineDoor: this.world.mineDoor,
       overlays: this.world.overlays,
       shops: this.shops.map((s) => ({
         id: s.id,
@@ -599,8 +697,21 @@ export class Game {
         vault: s.vault,
         earnings: s.earnings,
       })),
+      npcs: this.npcs.map((n) => ({
+        id: n.id,
+        name: n.name,
+        role: n.role,
+        color: n.color,
+        x: n.x,
+        y: n.y,
+        dir: n.dir,
+        quest: n.quest,
+      })),
+      townProject: this.townProject,
+      trades: openTrades,
+      questsDone: [...(this.questsDone.get(playerId) || [])],
       players,
-      chat: this.chat.slice(-12),
+      chat: this.chat.slice(-16),
     };
   }
 
@@ -613,6 +724,7 @@ export class Game {
       worldW: WORLD_W,
       worldH: WORLD_H,
       crops: CROPS,
+      animalsCatalog: Object.values(ANIMALS).map((a) => ({ id: a.id, name: a.name, price: a.price })),
     };
   }
 }

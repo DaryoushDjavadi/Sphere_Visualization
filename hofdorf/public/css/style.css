@@ -553,3 +553,53 @@ html, body {
   .stick, .touch-actions { opacity: 0.35; }
   .stick:hover, .touch-actions:hover { opacity: 1; }
 }
+
+.chat-bar {
+  position: absolute;
+  left: 10px;
+  bottom: max(200px, calc(env(safe-area-inset-bottom) + 190px));
+  display: flex;
+  gap: 6px;
+  width: min(260px, 55vw);
+  pointer-events: auto;
+  z-index: 5;
+}
+
+.chat-bar input {
+  flex: 1;
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(243,230,200,0.25);
+  background: rgba(12,18,14,0.75);
+  color: var(--cream);
+  touch-action: manipulation;
+}
+
+.chat-bar button {
+  font: inherit;
+  font-weight: 800;
+  border: none;
+  border-radius: 10px;
+  padding: 0 10px;
+  background: var(--clay);
+  color: #fff;
+}
+
+.inv-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  max-height: 28vh;
+  overflow: auto;
+}
+
+.inv-grid div {
+  background: rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+

@@ -196,6 +196,10 @@ function buildTown(tiles) {
 
   fillRect(tiles, ox + 4, oy + 14, 4, 3, T.WATER);
 
+  // Mine entrance marker building south of plaza
+  fillRect(tiles, ox + 10, oy + 16, 4, 3, T.BUILDING);
+  tiles[idx(ox + 11, oy + 18)] = T.DOOR;
+
   scatter(tiles, ox + 2, oy + 2, w - 4, h - 4, T.FLOWER, 0.06, new Set([T.BUILDING, T.DOOR, T.WATER, T.FLOOR, T.COUNTER]));
   scatter(tiles, ox + 2, oy + 2, w - 4, h - 4, T.TREE, 0.02, new Set([T.BUILDING, T.DOOR, T.WATER, T.FLOOR, T.COUNTER, T.FLOWER]));
 }
@@ -235,10 +239,26 @@ export function createWorld() {
     openGate(tiles, farm);
   }
 
+  // Mine field east of town — dense rocks to pick
+  const mine = { ox: TOWN.ox + TOWN.w + 2, oy: TOWN.oy + 2, w: 14, h: 12 };
+  fillRect(tiles, mine.ox, mine.oy, mine.w, mine.h, T.GRASS);
+  stampFence(tiles, mine.ox, mine.oy, mine.w, mine.h);
+  tiles[idx(mine.ox, mine.oy + Math.floor(mine.h / 2))] = T.PATH;
+  tiles[idx(mine.ox, mine.oy + Math.floor(mine.h / 2) + 1)] = T.PATH;
+  carvePath(tiles, townCx, townCy, mine.ox, mine.oy + Math.floor(mine.h / 2));
+  for (let y = mine.oy + 2; y < mine.oy + mine.h - 2; y++) {
+    for (let x = mine.ox + 2; x < mine.ox + mine.w - 2; x++) {
+      if (Math.random() < 0.55) tiles[idx(x, y)] = T.ROCK;
+      else if (Math.random() < 0.08) tiles[idx(x, y)] = T.TREE;
+    }
+  }
+
   return {
     tiles,
     overlays,
     farms,
+    mine,
+    mineDoor: { x: TOWN.ox + 11, y: TOWN.oy + 18 },
     town: { ...TOWN, shop: { x: TOWN.ox + 5, y: TOWN.oy + 6 } },
     day: 1,
     season: 'Frühling',

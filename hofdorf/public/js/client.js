@@ -1,4 +1,5 @@
 import { Renderer } from './renderer.js';
+import { wireExtras } from './extras.js';
 
 const boot = document.getElementById('boot');
 const gameEl = document.getElementById('game');
@@ -103,6 +104,15 @@ function connect(name) {
       else if (msg.earned != null) toast(`+${msg.earned} Gold`);
       else if (msg.slept) toast(`Guten Morgen — Tag ${msg.day}`);
       else if (msg.farmName) toast(`Hof heißt jetzt „${msg.farmName}“`);
+      else if (msg.animal) toast(`Gekauft: ${msg.animal}`);
+      else if (msg.fed) toast(`Gefüttert: ${msg.fed}`);
+      else if (msg.got) toast(`Einsammelt: ${msg.got}`);
+      else if (msg.fish) toast(`Fisch: ${msg.fish}`);
+      else if (msg.upgraded) toast(`${msg.upgraded} → Stufe ${msg.level}`);
+      else if (msg.questDone) toast(`Auftrag erledigt (+${msg.gold}g)`);
+      else if (msg.enteredMine) toast('Willkommen in der Mine');
+      else if (msg.leftMine) toast('Zurück in der Stadt');
+      else if (msg.traded) toast('Handel abgeschlossen');
       else if (msg.claimed) toast(`Übernommen: ${msg.claimed}`);
       else if (msg.partner) toast(`Teilhaber: ${msg.partner}`);
       else if (msg.produced) toast(`${msg.produced} (+${msg.gold}g)`);
@@ -110,7 +120,8 @@ function connect(name) {
       else if (msg.deposited) toast(`Eingelagert: ${msg.deposited}`);
       else if (msg.shop) openShop();
       else if (msg.tilled || msg.watered || msg.wood || msg.stone) renderer.shake = 1;
-      if (!shopEl.classList.contains('hidden')) renderBusiness();
+      extras.onActionResult(msg);
+      if (!document.getElementById('shop').classList.contains('hidden')) renderBusiness();
     } else if (msg.type === 'player_join') {
       toast(`${msg.player.name} ist da`);
     } else if (msg.type === 'player_leave') {
@@ -229,6 +240,12 @@ stick.addEventListener('pointerup', () => {
 stick.addEventListener('pointercancel', () => {
   stickTouchId = null;
   resetStick();
+});
+
+const extras = wireExtras({
+  sendAction: (payload) => sendAction(payload),
+  toast: (m) => toast(m),
+  getState: () => state,
 });
 
 document.getElementById('btnAction').addEventListener('click', () => sendAction());

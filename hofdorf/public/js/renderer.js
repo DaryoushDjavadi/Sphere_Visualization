@@ -280,10 +280,23 @@ export class Renderer {
       }
     }
     for (const p of state.players) deco.push({ player: p, y: p.y });
+    for (const n of state.npcs || []) deco.push({ npc: n, y: n.y });
+    for (const farm of state.farms || []) {
+      for (const a of farm.animals || []) {
+        deco.push({
+          animal: a,
+          x: farm.spawn ? farm.ox + 4 + (a.id.charCodeAt(1) % 5) : farm.ox + 5,
+          y: farm.oy + farm.h - 4,
+          farm,
+        });
+      }
+    }
     deco.sort((a, b) => a.y - b.y);
 
     for (const d of deco) {
       if (d.player) this.drawPlayer(ctx, d.player, ox, oy);
+      else if (d.npc) this.drawNpc(ctx, d.npc, ox, oy);
+      else if (d.animal) this.drawAnimal(ctx, d.animal, d.x, d.y, ox, oy);
       else if (d.ov) this.drawOverlay(ctx, d.tx, d.ty, d.ov, ox, oy, d.crops);
       else this.drawProp(ctx, d.tx, d.ty, d.kind, ox, oy);
     }
@@ -706,6 +719,51 @@ export class Renderer {
     ctx.fill();
     ctx.fillStyle = '#f3e6c8';
     ctx.fillText(label, x, y - 33 + bob);
+  }
+
+  drawNpc(ctx, n, ox, oy) {
+    const x = n.x * TILE + ox;
+    const y = n.y * TILE + oy;
+    const bob = Math.sin(performance.now() / 400 + n.x) * 0.8;
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 10, 8, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    px(ctx, x - 7, y - 10 + bob, 14, 14, n.color || '#e87ab8');
+    px(ctx, x - 6, y - 22 + bob, 12, 12, '#f0c49a');
+    px(ctx, x - 7, y - 26 + bob, 14, 5, '#3d2914');
+    ctx.font = '700 10px Nunito, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(12,18,14,0.55)';
+    const label = n.name;
+    const tw = ctx.measureText(label).width + 8;
+    roundRect(ctx, x - tw / 2, y - 40 + bob, tw, 12, 4);
+    ctx.fill();
+    ctx.fillStyle = '#f0c75e';
+    ctx.fillText(label, x, y - 31 + bob);
+  }
+
+  drawAnimal(ctx, a, tileX, tileY, ox, oy) {
+    const x = tileX * TILE + ox + 16;
+    const y = tileY * TILE + oy + 16;
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 6, 8, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    if (a.type === 'cow') {
+      px(ctx, x - 10, y - 8, 20, 12, '#f3e6c8');
+      px(ctx, x - 8, y - 6, 4, 4, '#3d2914');
+      px(ctx, x + 4, y - 6, 4, 4, '#3d2914');
+      px(ctx, x - 12, y - 12, 8, 8, '#f3e6c8');
+    } else {
+      px(ctx, x - 6, y - 6, 12, 10, '#f5f5f0');
+      px(ctx, x - 4, y - 10, 8, 6, '#f5f5f0');
+      px(ctx, x - 2, y - 8, 2, 2, '#1c140c');
+      px(ctx, x + 2, y - 12, 2, 4, '#e85d4c');
+    }
+    if (a.ready) {
+      px(ctx, x + 6, y - 14, 3, 3, '#f0c75e');
+    }
   }
 }
 

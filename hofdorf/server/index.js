@@ -11,10 +11,24 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 3847;
 
 const app = express();
+app.use(express.json());
 app.use(express.static(join(__dirname, '../public')));
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, name: 'Hofdorf', players: game.players.size });
+});
+
+app.post('/api/debug/place', (req, res) => {
+  const { name, x, y } = req.body || {};
+  let found = false;
+  for (const p of game.players.values()) {
+    if (p.name === name) {
+      if (typeof x === 'number') p.x = x;
+      if (typeof y === 'number') p.y = y;
+      found = true;
+    }
+  }
+  res.json({ ok: found });
 });
 
 const server = createServer(app);
