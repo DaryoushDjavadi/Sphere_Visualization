@@ -329,6 +329,85 @@ html, body {
   pointer-events: auto;
 }
 
+.minimap-wrap {
+  position: absolute;
+  top: max(52px, calc(env(safe-area-inset-top) + 44px));
+  right: max(10px, env(safe-area-inset-right));
+  width: 140px;
+  height: 120px;
+  padding: 0;
+  border: 2px solid rgba(240, 199, 94, 0.45);
+  border-radius: 12px;
+  background: rgba(12, 18, 14, 0.75);
+  overflow: hidden;
+  pointer-events: auto;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+#minimap, #worldMap {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+}
+
+.map-card #worldMap {
+  width: 100%;
+  max-height: 42vh;
+  background: #1a2818;
+  border-radius: 10px;
+  border: 1px solid rgba(243, 230, 200, 0.15);
+}
+
+.map-legend {
+  margin: 10px 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  max-height: 120px;
+  overflow: auto;
+}
+
+.map-legend div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.rename-row {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+
+.rename-row label {
+  display: grid;
+  gap: 6px;
+  font-weight: 800;
+  font-size: 0.82rem;
+}
+
+.rename-row input {
+  font: inherit;
+  font-weight: 600;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 2px solid rgba(243, 230, 200, 0.25);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--cream);
+  outline: none;
+  touch-action: manipulation;
+}
+
+@media (max-width: 420px) {
+  .minimap-wrap {
+    width: 112px;
+    height: 96px;
+  }
+}
+
 .modal-card {
   width: min(380px, 100%);
   background: linear-gradient(165deg, #243828, #152018);

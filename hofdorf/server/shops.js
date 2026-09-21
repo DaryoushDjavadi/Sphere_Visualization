@@ -6,8 +6,8 @@ export const SHOP_DEFS = [
     name: 'Samenladen',
     blurb: 'Samen verkaufen an Nachbarn. Einnahmen aus Verkäufen.',
     claimPrice: 600,
-    x: 33, // near existing shop building
-    y: 26,
+    x: 49,
+    y: 44,
     kind: 'seeds',
   },
   {
@@ -15,8 +15,8 @@ export const SHOP_DEFS = [
     name: 'Dorfküche',
     blurb: 'Verarbeitet Ernte zu Gerichten — Gold jeden Morgen.',
     claimPrice: 900,
-    x: 45,
-    y: 26,
+    x: 61,
+    y: 44,
     kind: 'produce',
     recipes: [
       { id: 'hash', name: 'Kartoffelpuffer', needs: { potato: 2 }, gold: 120 },
@@ -29,8 +29,8 @@ export const SHOP_DEFS = [
     name: 'Werkstatt',
     blurb: 'Holz & Stein zu Waren verarbeiten.',
     claimPrice: 750,
-    x: 40,
-    y: 34,
+    x: 56,
+    y: 52,
     kind: 'produce',
     recipes: [
       { id: 'crate', name: 'Obstkiste', needs: { wood: 3 }, gold: 90 },
@@ -52,29 +52,11 @@ export function createShops() {
     recipes: d.recipes || null,
     ownerId: null,
     ownerName: null,
-    partners: [], // { id, name }
-    vault: {}, // deposited materials
-    earnings: 0, // pending gold to distribute on claim/day
+    partners: [],
+    vault: {},
+    earnings: 0,
     lastPayout: 0,
   }));
-}
-
-export function shopPublic(shop) {
-  return {
-    id: shop.id,
-    name: shop.name,
-    blurb: shop.blurb,
-    claimPrice: shop.claimPrice,
-    x: shop.x,
-    y: shop.y,
-    kind: shop.kind,
-    recipes: shop.recipes,
-    ownerId: shop.ownerId,
-    ownerName: shop.ownerName,
-    partners: shop.partners,
-    vault: shop.vault,
-    earnings: shop.earnings,
-  };
 }
 
 export function isShopMember(shop, playerId) {

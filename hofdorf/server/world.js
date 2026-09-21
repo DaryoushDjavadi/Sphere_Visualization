@@ -1,35 +1,45 @@
-/** World layout: shared town in the center, personal farms around it */
+/** World layout: shared town in the center, up to 10 personal farms around it */
 
 export const TILE = 32;
-export const WORLD_W = 80;
-export const WORLD_H = 60;
+export const WORLD_W = 112;
+export const WORLD_H = 96;
 
 /** Tile kinds */
 export const T = {
   GRASS: 0,
   PATH: 1,
-  DIRT: 2,       // tilled soil
+  DIRT: 2,
   WATER: 3,
   FENCE: 4,
   BUILDING: 5,
   TREE: 6,
   ROCK: 7,
   FLOWER: 8,
-  FLOOR: 9,      // interior / plaza
+  FLOOR: 9,
   BED: 10,
   COUNTER: 11,
   DOOR: 12,
-  CROP: 13,      // marker — actual crop data lives in overlays
+  CROP: 13,
 };
 
+/**
+ * gate = side of the farm that opens toward town ('n'|'s'|'e'|'w')
+ * 10 slots so a full lobby can each own a Hof
+ */
 export const FARM_SLOTS = [
-  { id: 'n', name: 'Nordhof', ox: 28, oy: 2, w: 24, h: 16, spawn: { x: 40, y: 16 } },
-  { id: 's', name: 'Südhof', ox: 28, oy: 42, w: 24, h: 16, spawn: { x: 40, y: 42 } },
-  { id: 'w', name: 'Westhof', ox: 2, oy: 20, w: 20, h: 18, spawn: { x: 20, y: 29 } },
-  { id: 'e', name: 'Osthof', ox: 58, oy: 20, w: 20, h: 18, spawn: { x: 58, y: 29 } },
+  { id: 'n1', name: 'Nordhof', ox: 47, oy: 2, w: 18, h: 14, gate: 's' },
+  { id: 'nw', name: 'Nordwesthof', ox: 18, oy: 6, w: 18, h: 14, gate: 's' },
+  { id: 'ne', name: 'Nordosthof', ox: 76, oy: 6, w: 18, h: 14, gate: 's' },
+  { id: 'w1', name: 'Westhof', ox: 2, oy: 28, w: 16, h: 16, gate: 'e' },
+  { id: 'w2', name: 'Mittelwesthof', ox: 2, oy: 50, w: 16, h: 16, gate: 'e' },
+  { id: 'e1', name: 'Osthof', ox: 94, oy: 28, w: 16, h: 16, gate: 'w' },
+  { id: 'e2', name: 'Mittelosthof', ox: 94, oy: 50, w: 16, h: 16, gate: 'w' },
+  { id: 'sw', name: 'Südwesthof', ox: 18, oy: 76, w: 18, h: 14, gate: 'n' },
+  { id: 's1', name: 'Südhof', ox: 47, oy: 80, w: 18, h: 14, gate: 'n' },
+  { id: 'se', name: 'Südosthof', ox: 76, oy: 76, w: 18, h: 14, gate: 'n' },
 ];
 
-export const TOWN = { ox: 28, oy: 20, w: 24, h: 20 };
+export const TOWN = { ox: 44, oy: 38, w: 24, h: 20 };
 
 function idx(x, y) {
   return y * WORLD_W + x;
@@ -72,10 +82,10 @@ function scatter(tiles, x0, y0, w, h, kind, chance, avoid = new Set()) {
 function carvePath(tiles, x0, y0, x1, y1) {
   let x = x0;
   let y = y0;
-  while (x !== x1 || y !== y1) {
+  let guard = 0;
+  while ((x !== x1 || y !== y1) && guard++ < 400) {
     if (inBounds(x, y) && tiles[idx(x, y)] !== T.WATER && tiles[idx(x, y)] !== T.BUILDING) {
       tiles[idx(x, y)] = T.PATH;
-      // Widen path a bit
       if (inBounds(x + 1, y) && tiles[idx(x + 1, y)] === T.GRASS) tiles[idx(x + 1, y)] = T.PATH;
       if (inBounds(x, y + 1) && tiles[idx(x, y + 1)] === T.GRASS) tiles[idx(x, y + 1)] = T.PATH;
     }
@@ -86,71 +96,77 @@ function carvePath(tiles, x0, y0, x1, y1) {
   }
 }
 
-function buildFarm(tiles, farm, overlays) {
-  const { ox, oy, w, h } = farm;
-  // Soft grass pad already there; carve field area
+function gatePoint(farm) {
+  const midX = farm.ox + Math.floor(farm.w / 2);
+  const midY = farm.oy + Math.floor(farm.h / 2);
+  if (farm.gate === 's') return { x: midX, y: farm.oy + farm.h - 1 };
+  if (farm.gate === 'n') return { x: midX, y: farm.oy };
+  if (farm.gate === 'e') return { x: farm.ox + farm.w - 1, y: midY };
+  return { x: farm.ox, y: midY }; // west
+}
+
+function openGate(tiles, farm) {
+  const midX = farm.ox + Math.floor(farm.w / 2);
+  const midY = farm.oy + Math.floor(farm.h / 2);
+  if (farm.gate === 's') {
+    tiles[idx(midX, farm.oy + farm.h - 1)] = T.PATH;
+    tiles[idx(midX + 1, farm.oy + farm.h - 1)] = T.PATH;
+  } else if (farm.gate === 'n') {
+    tiles[idx(midX, farm.oy)] = T.PATH;
+    tiles[idx(midX + 1, farm.oy)] = T.PATH;
+  } else if (farm.gate === 'e') {
+    tiles[idx(farm.ox + farm.w - 1, midY)] = T.PATH;
+    tiles[idx(farm.ox + farm.w - 1, midY + 1)] = T.PATH;
+  } else {
+    tiles[idx(farm.ox, midY)] = T.PATH;
+    tiles[idx(farm.ox, midY + 1)] = T.PATH;
+  }
+}
+
+function buildFarm(tiles, farm) {
+  const { ox, oy, w, h, gate } = farm;
   const fieldX = ox + 3;
   const fieldY = oy + 4;
-  const fieldW = w - 6;
-  const fieldH = h - 7;
+  const fieldW = Math.max(4, w - 6);
+  const fieldH = Math.max(4, h - 7);
   fillRect(tiles, fieldX, fieldY, fieldW, fieldH, T.GRASS);
 
-  // Cabin on the side opposite the town gate so the exit stays clear
+  // Cabin opposite the town gate
   let cx = ox + Math.floor(w / 2) - 2;
   let cy = oy + 1;
-  if (farm.id === 's') {
-    cy = oy + h - 4; // cabin at south end, gate is north
-  } else if (farm.id === 'n') {
-    cy = oy + 1; // cabin north, gate south
-  } else if (farm.id === 'w') {
+  if (gate === 'n') cy = oy + h - 4;
+  else if (gate === 's') cy = oy + 1;
+  else if (gate === 'e') {
     cx = ox + 1;
     cy = oy + Math.floor(h / 2) - 1;
-  } else if (farm.id === 'e') {
+  } else if (gate === 'w') {
     cx = ox + w - 6;
     cy = oy + Math.floor(h / 2) - 1;
   }
 
   fillRect(tiles, cx, cy, 5, 3, T.BUILDING);
-  // Door facing toward field / town
-  const doorY = farm.id === 's' ? cy : cy + 2;
+  const doorY = gate === 'n' ? cy : cy + 2;
   tiles[idx(cx + 2, doorY)] = T.DOOR;
   tiles[idx(cx + 1, cy + 1)] = T.BED;
 
-  // Fence around farm with gate toward town
   stampFence(tiles, ox, oy, w, h);
+  openGate(tiles, farm);
 
   const midX = ox + Math.floor(w / 2);
   const midY = oy + Math.floor(h / 2);
-  if (farm.id === 'n') {
-    tiles[idx(midX, oy + h - 1)] = T.PATH;
-    tiles[idx(midX + 1, oy + h - 1)] = T.PATH;
-  } else if (farm.id === 's') {
-    tiles[idx(midX, oy)] = T.PATH;
-    tiles[idx(midX + 1, oy)] = T.PATH;
-  } else if (farm.id === 'w') {
-    tiles[idx(ox + w - 1, midY)] = T.PATH;
-    tiles[idx(ox + w - 1, midY + 1)] = T.PATH;
-  } else if (farm.id === 'e') {
-    tiles[idx(ox, midY)] = T.PATH;
-    tiles[idx(ox, midY + 1)] = T.PATH;
-  }
 
-  // Trees & rocks on farm edges
   scatter(tiles, ox + 1, oy + 1, w - 2, h - 2, T.TREE, 0.04, new Set([T.BUILDING, T.DOOR, T.BED, T.PATH, T.FENCE]));
   scatter(tiles, ox + 1, oy + 1, w - 2, h - 2, T.ROCK, 0.03, new Set([T.BUILDING, T.DOOR, T.BED, T.PATH, T.FENCE, T.TREE]));
-
-  // Clear field interior of trees/rocks so farming is playable
   fillRect(tiles, fieldX, fieldY, fieldW, fieldH, T.GRASS);
 
-  // Clear a lane from field to gate
-  if (farm.id === 'n') {
+  if (gate === 's') {
     fillRect(tiles, midX, fieldY + fieldH, 2, (oy + h) - (fieldY + fieldH), T.PATH);
-  } else if (farm.id === 's') {
-    fillRect(tiles, midX, oy + 1, 2, fieldY - (oy + 1), T.PATH);
-  } else if (farm.id === 'w') {
-    fillRect(tiles, fieldX + fieldW, midY, (ox + w) - (fieldX + fieldW), 2, T.PATH);
-  } else if (farm.id === 'e') {
-    fillRect(tiles, ox + 1, midY, fieldX - (ox + 1), 2, T.PATH);
+  } else if (gate === 'n') {
+    fillRect(tiles, midX, oy + 1, 2, Math.max(1, fieldY - (oy + 1)), T.PATH);
+  } else if (gate === 'e') {
+    fillRect(tiles, fieldX + fieldW, midY, Math.max(1, (ox + w) - (fieldX + fieldW)), 2, T.PATH);
+  } else {
+    fillRect(tiles, ox + 1, midY, Math.max(1, fieldX - (ox + 1)), 2, T.PATH);
   }
 
   farm.field = { x: fieldX, y: fieldY, w: fieldW, h: fieldH };
@@ -162,81 +178,61 @@ function buildFarm(tiles, farm, overlays) {
 function buildTown(tiles) {
   const { ox, oy, w, h } = TOWN;
   fillRect(tiles, ox + 2, oy + 2, w - 4, h - 4, T.GRASS);
-
-  // Plaza
   fillRect(tiles, ox + 8, oy + 7, 8, 6, T.FLOOR);
 
-  // Fountain offset from the main N/S path (path runs at world x≈40)
+  // Fountain off the main N/S corridor (town center x)
   tiles[idx(ox + 9, oy + 9)] = T.WATER;
   tiles[idx(ox + 10, oy + 9)] = T.WATER;
   tiles[idx(ox + 9, oy + 10)] = T.WATER;
   tiles[idx(ox + 10, oy + 10)] = T.WATER;
 
-  // Shop (Pierre-like)
   fillRect(tiles, ox + 3, oy + 3, 6, 4, T.BUILDING);
   tiles[idx(ox + 5, oy + 6)] = T.DOOR;
   tiles[idx(ox + 4, oy + 4)] = T.COUNTER;
   tiles[idx(ox + 5, oy + 4)] = T.COUNTER;
 
-  // Inn / community board
   fillRect(tiles, ox + 15, oy + 3, 6, 4, T.BUILDING);
   tiles[idx(ox + 17, oy + 6)] = T.DOOR;
 
-  // Small pond
   fillRect(tiles, ox + 4, oy + 14, 4, 3, T.WATER);
 
-  // Flowers around plaza
   scatter(tiles, ox + 2, oy + 2, w - 4, h - 4, T.FLOWER, 0.06, new Set([T.BUILDING, T.DOOR, T.WATER, T.FLOOR, T.COUNTER]));
   scatter(tiles, ox + 2, oy + 2, w - 4, h - 4, T.TREE, 0.02, new Set([T.BUILDING, T.DOOR, T.WATER, T.FLOOR, T.COUNTER, T.FLOWER]));
+}
+
+export function farmDisplayName(farm) {
+  return (farm.customName && farm.customName.trim()) || farm.name;
 }
 
 export function createWorld() {
   const tiles = new Uint8Array(WORLD_W * WORLD_H);
   tiles.fill(T.GRASS);
 
-  // Soft wilderness scatter
-  scatter(tiles, 0, 0, WORLD_W, WORLD_H, T.TREE, 0.035);
-  scatter(tiles, 0, 0, WORLD_W, WORLD_H, T.ROCK, 0.015);
-  scatter(tiles, 0, 0, WORLD_W, WORLD_H, T.FLOWER, 0.02);
+  scatter(tiles, 0, 0, WORLD_W, WORLD_H, T.TREE, 0.03);
+  scatter(tiles, 0, 0, WORLD_W, WORLD_H, T.ROCK, 0.012);
+  scatter(tiles, 0, 0, WORLD_W, WORLD_H, T.FLOWER, 0.018);
 
-  // Clear corridors for paths first
   const townCx = TOWN.ox + Math.floor(TOWN.w / 2);
   const townCy = TOWN.oy + Math.floor(TOWN.h / 2);
 
   buildTown(tiles);
 
-  const farms = FARM_SLOTS.map((f) => ({ ...f, ownerId: null }));
-  const overlays = {}; // key "x,y" -> crop/object overlay
+  const farms = FARM_SLOTS.map((f) => ({
+    ...f,
+    ownerId: null,
+    customName: null,
+  }));
+  const overlays = {};
 
   for (const farm of farms) {
-    // Clear farm area grass noise
     fillRect(tiles, farm.ox, farm.oy, farm.w, farm.h, T.GRASS);
-    buildFarm(tiles, farm, overlays);
+    buildFarm(tiles, farm);
   }
 
-  // Paths from farms to town plaza
-  carvePath(tiles, townCx, townCy, townCx, farms[0].oy + farms[0].h - 1); // north
-  carvePath(tiles, townCx, townCy, townCx, farms[1].oy); // south
-  carvePath(tiles, townCx, townCy, farms[2].ox + farms[2].w - 1, townCy); // west
-  carvePath(tiles, townCx, townCy, farms[3].ox, townCy); // east
-
-  // Re-open gates after path carve
   for (const farm of farms) {
-    const midX = farm.ox + Math.floor(farm.w / 2);
-    const midY = farm.oy + Math.floor(farm.h / 2);
-    if (farm.id === 'n') {
-      tiles[idx(midX, farm.oy + farm.h - 1)] = T.PATH;
-      tiles[idx(midX + 1, farm.oy + farm.h - 1)] = T.PATH;
-    } else if (farm.id === 's') {
-      tiles[idx(midX, farm.oy)] = T.PATH;
-      tiles[idx(midX + 1, farm.oy)] = T.PATH;
-    } else if (farm.id === 'w') {
-      tiles[idx(farm.ox + farm.w - 1, midY)] = T.PATH;
-      tiles[idx(farm.ox + farm.w - 1, midY + 1)] = T.PATH;
-    } else if (farm.id === 'e') {
-      tiles[idx(farm.ox, midY)] = T.PATH;
-      tiles[idx(farm.ox, midY + 1)] = T.PATH;
-    }
+    const g = gatePoint(farm);
+    carvePath(tiles, townCx, townCy, g.x, g.y);
+    openGate(tiles, farm);
   }
 
   return {
@@ -246,7 +242,7 @@ export function createWorld() {
     town: { ...TOWN, shop: { x: TOWN.ox + 5, y: TOWN.oy + 6 } },
     day: 1,
     season: 'Frühling',
-    timeMinutes: 6 * 60, // 06:00
+    timeMinutes: 6 * 60,
     weather: 'sonnig',
   };
 }
@@ -275,7 +271,6 @@ export function canWalk(world, x, y) {
   if (!inBounds(tx, ty)) return false;
   const kind = tileAt(world, tx, ty);
   if (isSolid(kind)) return false;
-  // Trees and rocks block until chopped/mined
   if (kind === T.TREE || kind === T.ROCK) return false;
   return true;
 }
@@ -288,17 +283,18 @@ export function assignFarm(world, playerId) {
   let slot = world.farms.find((f) => f.ownerId === playerId);
   if (slot) return slot;
   slot = world.farms.find((f) => f.ownerId === null);
-  if (!slot) {
-    // Reuse oldest empty — if all taken, still allow visitor without farm ownership transfer
-    return null;
-  }
+  if (!slot) return null;
   slot.ownerId = playerId;
+  slot.customName = null;
   return slot;
 }
 
 export function releaseFarm(world, playerId) {
   for (const f of world.farms) {
-    if (f.ownerId === playerId) f.ownerId = null;
+    if (f.ownerId === playerId) {
+      f.ownerId = null;
+      f.customName = null;
+    }
   }
 }
 

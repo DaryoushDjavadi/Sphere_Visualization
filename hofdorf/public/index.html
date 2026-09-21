@@ -46,9 +46,30 @@
       </div>
       <div class="touch-actions">
         <button id="btnAction" type="button" class="round-btn">A</button>
+        <button id="btnMap" type="button" class="round-btn secondary">Karte</button>
         <button id="btnShop" type="button" class="round-btn secondary">Laden</button>
         <button id="btnHelp" type="button" class="round-btn secondary">Hilfe</button>
         <button id="btnSleep" type="button" class="round-btn secondary">Schlaf</button>
+      </div>
+    </div>
+
+    <button id="minimapBtn" type="button" class="minimap-wrap" title="Karte öffnen" aria-label="Karte">
+      <canvas id="minimap" width="140" height="120"></canvas>
+    </button>
+
+    <div id="mapModal" class="modal hidden">
+      <div class="modal-card wide map-card">
+        <h2>Weltkarte</h2>
+        <p class="muted">Alle Höfe, Stadt und Spieler. Tippe auf die Mini-Karte oder „Karte“.</p>
+        <canvas id="worldMap" width="336" height="288"></canvas>
+        <div class="map-legend" id="mapLegend"></div>
+        <div class="rename-row">
+          <label>Dein Hof nennen
+            <input id="farmNameInput" maxlength="18" placeholder="z.B. Sonnenacker" autocomplete="off" />
+          </label>
+          <button id="renameFarmBtn" type="button" class="full">Namen speichern</button>
+        </div>
+        <button id="closeMap" type="button" class="ghost full">Schließen</button>
       </div>
     </div>
 

@@ -82,6 +82,7 @@ function connect(name) {
       else if (msg.bought) toast(`Gekauft: ${msg.bought}`);
       else if (msg.earned != null) toast(`+${msg.earned} Gold`);
       else if (msg.slept) toast(`Guten Morgen — Tag ${msg.day}`);
+      else if (msg.farmName) toast(`Hof heißt jetzt „${msg.farmName}“`);
       else if (msg.claimed) toast(`Übernommen: ${msg.claimed}`);
       else if (msg.partner) toast(`Teilhaber: ${msg.partner}`);
       else if (msg.produced) toast(`${msg.produced} (+${msg.gold}g)`);
@@ -142,6 +143,7 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
   }
   if (e.code === 'KeyB') openShop();
+  if (e.code === 'KeyM') openMap();
   if (e.code === 'KeyH' || e.key === '?') openHelp();
   if (e.code === 'KeyZ') sendAction({ sleep: true });
   if (e.code.startsWith('Digit')) {
@@ -210,50 +212,187 @@ stick.addEventListener('pointercancel', () => {
 });
 
 document.getElementById('btnAction').addEventListener('click', () => sendAction());
+document.getElementById('btnMap').addEventListener('click', () => openMap());
 document.getElementById('btnShop').addEventListener('click', () => openShop());
 document.getElementById('btnHelp').addEventListener('click', () => openHelp());
 document.getElementById('btnSleep').addEventListener('click', () => sendAction({ sleep: true }));
 document.getElementById('closeShop').addEventListener('click', () => shopEl.classList.add('hidden'));
 document.getElementById('closeHelp').addEventListener('click', () => helpEl.classList.add('hidden'));
+document.getElementById('closeMap').addEventListener('click', () => mapModal.classList.add('hidden'));
+document.getElementById('minimapBtn').addEventListener('click', () => openMap());
 document.getElementById('sellAll').addEventListener('click', () => {
   sendAction({ shop: true, sell: true });
+});
+document.getElementById('renameFarmBtn').addEventListener('click', () => {
+  const name = document.getElementById('farmNameInput').value;
+  sendAction({ renameFarm: name });
+});
+document.getElementById('farmNameInput').addEventListener('keydown', (e) => {
+  e.stopPropagation();
+  if (e.key === 'Enter') document.getElementById('renameFarmBtn').click();
 });
 
 const helpEl = document.getElementById('help');
 const helpBody = document.getElementById('helpBody');
+const mapModal = document.getElementById('mapModal');
+const minimapCanvas = document.getElementById('minimap');
+const worldMapCanvas = document.getElementById('worldMap');
+const mapLegend = document.getElementById('mapLegend');
 const businessList = document.getElementById('businessList');
 const businessDetail = document.getElementById('businessDetail');
 let selectedBiz = null;
+
+const MAP_COLORS = {
+  grass: '#2f6b45',
+  path: '#c2a06a',
+  dirt: '#7a5230',
+  water: '#2f6f9e',
+  fence: '#6b4226',
+  building: '#8b5a3c',
+  tree: '#1f6b38',
+  rock: '#7a7f88',
+  flower: '#e85d4c',
+  floor: '#d8c49a',
+  bed: '#4c8fe8',
+  counter: '#a07040',
+  door: '#3d2914',
+};
+
+function tileColor(kind) {
+  const map = [
+    MAP_COLORS.grass, MAP_COLORS.path, MAP_COLORS.dirt, MAP_COLORS.water,
+    MAP_COLORS.fence, MAP_COLORS.building, MAP_COLORS.tree, MAP_COLORS.rock,
+    MAP_COLORS.flower, MAP_COLORS.floor, MAP_COLORS.bed, MAP_COLORS.counter,
+    MAP_COLORS.door,
+  ];
+  return map[kind] || MAP_COLORS.grass;
+}
+
+function drawOverview(canvas, opts = {}) {
+  if (!state || !renderer.tiles) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  const ww = renderer.worldW;
+  const wh = renderer.worldH;
+  const scaleX = w / ww;
+  const scaleY = h / wh;
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = '#143022';
+  ctx.fillRect(0, 0, w, h);
+
+  // Sample tiles for speed on small canvas
+  const step = opts.detail ? 1 : Math.max(1, Math.floor(Math.min(ww / w, wh / h)));
+  for (let ty = 0; ty < wh; ty += step) {
+    for (let tx = 0; tx < ww; tx += step) {
+      const kind = renderer.tiles[ty * ww + tx];
+      ctx.fillStyle = tileColor(kind);
+      ctx.fillRect(Math.floor(tx * scaleX), Math.floor(ty * scaleY), Math.ceil(scaleX * step), Math.ceil(scaleY * step));
+    }
+  }
+
+  // Town outline
+  if (state.town) {
+    const t = state.town;
+    ctx.strokeStyle = 'rgba(240,199,94,0.85)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(t.ox * scaleX, t.oy * scaleY, t.w * scaleX, t.h * scaleY);
+  }
+
+  // Farms + names
+  ctx.font = opts.detail ? 'bold 10px Nunito,sans-serif' : 'bold 8px Nunito,sans-serif';
+  ctx.textAlign = 'center';
+  for (const farm of state.farms || []) {
+    const owned = !!farm.ownerId;
+    ctx.strokeStyle = owned ? 'rgba(232,93,76,0.9)' : 'rgba(243,230,200,0.35)';
+    ctx.lineWidth = owned ? 1.5 : 1;
+    ctx.strokeRect(farm.ox * scaleX, farm.oy * scaleY, farm.w * scaleX, farm.h * scaleY);
+    const label = farm.displayName || farm.name;
+    const lx = (farm.ox + farm.w / 2) * scaleX;
+    const ly = (farm.oy + farm.h / 2) * scaleY;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    const tw = ctx.measureText(label).width + 4;
+    ctx.fillRect(lx - tw / 2, ly - 6, tw, 11);
+    ctx.fillStyle = owned ? '#f0c75e' : '#f3e6c8';
+    ctx.fillText(label, lx, ly + 3);
+  }
+
+  // Players
+  for (const p of state.players || []) {
+    ctx.fillStyle = p.color || '#fff';
+    ctx.beginPath();
+    ctx.arc(p.x * scaleX, p.y * scaleY, opts.detail ? 3.5 : 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    if (p.self) {
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+}
+
+let lastMapDraw = 0;
+function refreshMaps() {
+  const now = performance.now();
+  const mapOpen = !mapModal.classList.contains('hidden');
+  if (!mapOpen && now - lastMapDraw < 280) return;
+  lastMapDraw = now;
+  drawOverview(minimapCanvas, { detail: false });
+  if (mapOpen) {
+    drawOverview(worldMapCanvas, { detail: true });
+    renderMapLegend();
+  }
+}
+
+function renderMapLegend() {
+  if (!state?.farms) return;
+  const me = state.players.find((p) => p.self);
+  mapLegend.innerHTML = state.farms.map((f) => {
+    const owner = state.players.find((p) => p.id === f.ownerId);
+    const mine = me && f.ownerId === me.id;
+    const who = owner ? owner.name : 'frei';
+    return `<div><span>${mine ? '★ ' : ''}${escapeHtml(f.displayName || f.name)}</span><span>${escapeHtml(who)}</span></div>`;
+  }).join('');
+}
+
+function openMap() {
+  mapModal.classList.remove('hidden');
+  shopEl.classList.add('hidden');
+  helpEl.classList.add('hidden');
+  const me = state?.players?.find((p) => p.self);
+  const farm = state?.farms?.find((f) => f.ownerId === me?.id);
+  const input = document.getElementById('farmNameInput');
+  if (farm && input) input.value = farm.customName || farm.displayName || farm.name || '';
+  drawOverview(worldMapCanvas, { detail: true });
+  renderMapLegend();
+}
 
 const HELP = {
   steuern: {
     title: 'Steuerung',
     html: `<ul>
       <li><b>Laufen:</b> WASD / Pfeile oder Touch-Stick</li>
-      <li><b>Aktion:</b> Leertaste / E / A-Button — Werkzeug oder Samen auf dem Feld vor dir (sonst unter den Füßen)</li>
+      <li><b>Aktion:</b> Leertaste / E / A-Button</li>
       <li><b>Hotbar:</b> Tasten 1–8 oder Slot antippen</li>
-      <li><b>Laden:</b> B oder Button „Laden“</li>
-      <li><b>Hilfe:</b> ? / H oder Button „Hilfe“</li>
-      <li><b>Schlafen:</b> Z oder „Schlaf“ — neuer Tag für alle</li>
+      <li><b>Karte:</b> M / Button „Karte“ / Mini-Karte oben rechts tippen</li>
+      <li><b>Laden:</b> B · <b>Hilfe:</b> H / ? · <b>Schlaf:</b> Z</li>
     </ul>`,
   },
   farm: {
     title: 'Dein Hof',
     html: `<ul>
-      <li>Jeder Spieler bekommt einen eigenen Hof (Nord/Süd/West/Ost).</li>
-      <li><b>Hack</b> → Gras zu Acker · <b>Samen</b> säen · <b>Gieß</b> wässern · über Nacht wachsen · <b>Sense</b> ernten</li>
-      <li><b>Axt</b> fällt Bäume (Holz) · <b>Pick</b> bricht Steine / entfernt Acker</li>
-      <li>Energie verbrauchen Aktionen. Schlafen füllt sie auf.</li>
-      <li>Fremde Höfe darfst du besuchen — bebauen nur den eigenen.</li>
+      <li>Bis zu <b>10 Höfe</b> pro Server — jeder Spieler bekommt einen freien Slot.</li>
+      <li>Hofnamen vergeben unter <b>Karte → Dein Hof nennen</b> — erscheint auf Mini-Karte & Weltkarte.</li>
+      <li><b>Hack</b> → säen → <b>Gieß</b> → wachsen → <b>Sense</b> ernten</li>
+      <li><b>Axt</b> / <b>Pick</b> für Holz & Stein. Fremde Höfe nur besuchen.</li>
     </ul>`,
   },
   stadt: {
-    title: 'Stadt & Wege',
+    title: 'Stadt & Karte',
     html: `<ul>
-      <li>Der <b>Dorfplatz</b> ist für alle synchron — hier trefft ihr euch.</li>
-      <li>Wege verbinden alle Höfe mit der Stadt. Einfach entlanglaufen.</li>
-      <li>Im Markt: Samen kaufen, Ernte verkaufen.</li>
-      <li>Gemeinsame Uhr: Tag, Jahreszeit, Wetter (Regen gießt alles).</li>
+      <li>Der <b>Dorfplatz</b> ist für alle synchron — Wege zu allen Höfen.</li>
+      <li>Die <b>Weltkarte</b> zeigt alle Höfe (mit Namen), Stadt und Spieler-Punkte.</li>
+      <li>Die <b>Mini-Karte</b> oben rechts aktualisiert sich live.</li>
     </ul>`,
   },
   laden: {
@@ -280,12 +419,14 @@ const HELP = {
 function openShop() {
   shopEl.classList.remove('hidden');
   helpEl.classList.add('hidden');
+  mapModal.classList.add('hidden');
   renderBusiness();
 }
 
 function openHelp(section = 'steuern') {
   helpEl.classList.remove('hidden');
   shopEl.classList.add('hidden');
+  mapModal.classList.add('hidden');
   showHelp(section);
 }
 
@@ -422,10 +563,10 @@ function updateHud() {
   if (farm) {
     const owner = state.players.find((p) => p.id === farm.ownerId);
     zone = farm.ownerId === me.id
-      ? `Dein ${farm.name}`
+      ? `Dein ${farm.displayName || farm.name}`
       : owner
-        ? `${farm.name} von ${owner.name}`
-        : farm.name;
+        ? `${farm.displayName || farm.name} von ${owner.name}`
+        : (farm.displayName || farm.name);
   } else if (
     me.x >= town.ox && me.x < town.ox + town.w &&
     me.y >= town.oy && me.y < town.oy + town.h
@@ -450,6 +591,8 @@ function updateHud() {
     const who = c.from === 'system' ? '•' : c.from;
     return `<div><b>${who}</b> ${escapeHtml(c.text)}</div>`;
   }).join('');
+
+  refreshMaps();
 }
 
 function escapeHtml(s) {

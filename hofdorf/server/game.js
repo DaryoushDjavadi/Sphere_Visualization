@@ -10,6 +10,7 @@ import {
   assignFarm,
   releaseFarm,
   serializeTiles,
+  farmDisplayName,
   WORLD_W,
   WORLD_H,
 } from './world.js';
@@ -100,6 +101,7 @@ export class Game {
     if (p.actionCooldown > 0) return { error: 'Kurz warten…' };
     if (payload.sleep) return this.sleep(p);
     if (payload.shop) return this.shop(p, payload);
+    if (payload.renameFarm) return this.renameFarm(p, payload.renameFarm);
     if (payload.chat) {
       this.pushChat(p.name, String(payload.chat).slice(0, 80));
       return { ok: true };
@@ -284,6 +286,19 @@ export class Game {
     }
 
     return { error: 'Nichts passiert' };
+  }
+
+  renameFarm(p, rawName) {
+    const farm = farmForOwner(this.world, p.id);
+    if (!farm) return { error: 'Kein eigener Hof' };
+    const name = String(rawName || '')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .slice(0, 18);
+    if (name.length < 2) return { error: 'Name zu kurz' };
+    farm.customName = name;
+    this.pushChat('system', `${p.name} nennt den Hof „${name}“.`);
+    return { ok: true, farmName: name };
   }
 
   sleep(p) {
@@ -559,6 +574,8 @@ export class Game {
       farms: this.world.farms.map((f) => ({
         id: f.id,
         name: f.name,
+        customName: f.customName,
+        displayName: farmDisplayName(f),
         ownerId: f.ownerId,
         ox: f.ox,
         oy: f.oy,

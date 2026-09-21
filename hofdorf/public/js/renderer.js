@@ -141,7 +141,9 @@ export class Renderer {
       ctx.textAlign = 'center';
       for (const farm of state.farms) {
         const owner = state.players.find((p) => p.id === farm.ownerId);
-        const label = owner ? `${farm.name} · ${owner.name}` : `${farm.name} · frei`;
+        const label = owner
+          ? `${farm.displayName || farm.name} · ${owner.name}`
+          : `${farm.displayName || farm.name} · frei`;
         const lx = farm.ox * TILE + (farm.w * TILE) / 2 + ox;
         const ly = farm.oy * TILE + 14 + oy;
         ctx.fillStyle = 'rgba(0,0,0,0.45)';
