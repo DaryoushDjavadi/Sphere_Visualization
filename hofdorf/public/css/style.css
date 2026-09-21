@@ -234,6 +234,21 @@ html, body {
   line-height: 1.1;
   text-align: center;
   pointer-events: none;
+  display: grid;
+  place-items: center;
+}
+
+.slot .lbl {
+  position: absolute;
+  left: 3px;
+  top: 2px;
+  font-size: 0.55rem;
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.slot svg {
+  pointer-events: none;
 }
 
 #chatLog {

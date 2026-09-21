@@ -30,17 +30,37 @@ let toastTimer = null;
 let stickTouchId = null;
 
 const ICONS = {
-  hoe: 'Hack',
-  can: 'Gieß',
-  axe: 'Axt',
-  pickaxe: 'Pick',
-  scythe: 'Sense',
-  parsnip_seed: 'Past',
-  potato_seed: 'Kart',
-  cauliflower_seed: 'Blum',
-  tomato_seed: 'Toma',
-  corn_seed: 'Mais',
+  hoe: { label: 'Hack', color: '#8a5a34', shape: 'hoe' },
+  can: { label: 'Gieß', color: '#4c8fe8', shape: 'can' },
+  axe: { label: 'Axt', color: '#c45c3a', shape: 'axe' },
+  pickaxe: { label: 'Pick', color: '#7a7f88', shape: 'pick' },
+  scythe: { label: 'Sense', color: '#c2a06a', shape: 'scythe' },
+  parsnip_seed: { label: 'Past', color: '#e8c96a', shape: 'seed' },
+  potato_seed: { label: 'Kart', color: '#d4a574', shape: 'seed' },
+  cauliflower_seed: { label: 'Blum', color: '#f5f5f0', shape: 'seed' },
+  tomato_seed: { label: 'Toma', color: '#e53935', shape: 'seed' },
+  corn_seed: { label: 'Mais', color: '#fdd835', shape: 'seed' },
 };
+
+function iconSvg(shape, color) {
+  const c = color || '#f3e6c8';
+  if (shape === 'hoe') {
+    return `<svg viewBox="0 0 24 24" width="18" height="18"><rect x="11" y="4" width="3" height="14" fill="#6b4226"/><rect x="5" y="4" width="12" height="4" rx="1" fill="${c}"/></svg>`;
+  }
+  if (shape === 'can') {
+    return `<svg viewBox="0 0 24 24" width="18" height="18"><rect x="7" y="8" width="10" height="10" rx="2" fill="${c}"/><rect x="15" y="10" width="5" height="3" fill="${c}"/><circle cx="10" cy="6" r="2" fill="#7ec8ff"/></svg>`;
+  }
+  if (shape === 'axe') {
+    return `<svg viewBox="0 0 24 24" width="18" height="18"><rect x="11" y="6" width="3" height="14" fill="#6b4226"/><path d="M6 6h10l-2 6H8z" fill="${c}"/></svg>`;
+  }
+  if (shape === 'pick') {
+    return `<svg viewBox="0 0 24 24" width="18" height="18"><rect x="11" y="8" width="3" height="12" fill="#6b4226"/><path d="M4 9l8-5 8 5-3 3H7z" fill="${c}"/></svg>`;
+  }
+  if (shape === 'scythe') {
+    return `<svg viewBox="0 0 24 24" width="18" height="18"><rect x="10" y="6" width="3" height="14" fill="#6b4226"/><path d="M12 5c6 0 8 4 8 7H12V5z" fill="${c}"/></svg>`;
+  }
+  return `<svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="14" r="5" fill="${c}"/><rect x="11" y="5" width="2" height="6" fill="#2f6b45"/></svg>`;
+}
 
 function toast(msg) {
   toastEl.textContent = msg;
@@ -582,7 +602,8 @@ function updateHud() {
     el.className = `slot${i === me.selected ? ' active' : ''}`;
     el.dataset.i = String(i);
     const qty = me.inventory[slot] || 0;
-    el.innerHTML = `<span class="icon">${ICONS[slot] || '•'}</span>${qty > 1 || String(slot).includes('seed') || ['wood','stone'].includes(slot) ? `<span class="qty">${qty}</span>` : ''}`;
+    const meta = ICONS[slot] || { label: '•', color: '#f3e6c8', shape: 'seed' };
+    el.innerHTML = `<span class="icon">${iconSvg(meta.shape, meta.color)}</span><span class="lbl">${meta.label}</span>${qty > 1 || String(slot).includes('seed') || ['wood', 'stone'].includes(slot) ? `<span class="qty">${qty}</span>` : ''}`;
     hotbarEl.appendChild(el);
   });
 
