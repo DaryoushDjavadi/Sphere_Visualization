@@ -36,9 +36,11 @@ const ICONS = {
   axe: { label: 'Axt', color: '#c45c3a', shape: 'axe' },
   pickaxe: { label: 'Pick', color: '#7a7f88', shape: 'pick' },
   scythe: { label: 'Sense', color: '#c2a06a', shape: 'scythe' },
+  rod: { label: 'Angel', color: '#4c8fe8', shape: 'pick' },
   parsnip_seed: { label: 'Past', color: '#e8c96a', shape: 'seed' },
   potato_seed: { label: 'Kart', color: '#d4a574', shape: 'seed' },
-  cauliflower_seed: { label: 'Blum', color: '#f5f5f0', shape: 'seed' },
+  berry_seed: { label: 'Beer', color: '#ab47bc', shape: 'seed' },
+  pumpkin_seed: { label: 'Kürb', color: '#ef6c00', shape: 'seed' },
   tomato_seed: { label: 'Toma', color: '#e53935', shape: 'seed' },
   corn_seed: { label: 'Mais', color: '#fdd835', shape: 'seed' },
 };
